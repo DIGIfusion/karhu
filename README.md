@@ -1,6 +1,6 @@
 # KARHU - An ideal peeling-ballooning MHD stability surrogate model
 
-KARHU is a surrogate model for the ideal peeling-ballooning MHD stability code MISHKA.
+KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD stability code MISHKA. This repository contains the surrogate model and helper functions for reading the necessary files. The training data will soon be available on Zenodo.
 
 
 See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
