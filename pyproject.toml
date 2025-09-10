@@ -1,0 +1,24 @@
+[project]
+name = "karhu"
+version = "0.1.0"
+description = "KARHU Surrogate Model"
+authors = [
+    { name = "Your Name", email = "your@email.com" },
+]
+dependencies = [
+    "f90nml==1.4.4",
+    "json5",
+    "matplotlib",
+    "mlflow==2.8.1",
+    "numpy",
+    "SciencePlots==2.1.1",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
+    "torch",
+    "urllib3",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
