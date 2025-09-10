@@ -1,5 +1,6 @@
 # Custom
 *.out
+fort.12
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
