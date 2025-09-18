@@ -6,3 +6,6 @@ KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD
 See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
 
 See publication: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
+
+
+The training data is available in folder ´data´. Future datasets will be hosted on Zenodo.
