@@ -4,3 +4,9 @@ KARHU is a surrogate model for the ideal MHD peeling-ballooning stability code M
 
 Published paper: [A.M. Bruncrona et al., "Machine learning surrogate model for ideal peeling–ballooning pedestal MHD stability", Physics of Plasmas (2025).](https://doi.org/10.1063/5.0282085)
 
+
+## Releases
+
+### v1.0.0
+Initial version. Corresponds to the PoP paper.
+_
