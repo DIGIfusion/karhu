@@ -85,7 +85,7 @@ if __name__ == "__main__":
         "-m",
         "--model_directory",
         type=str,
-        default="../model",
+        default="../model/jet_2H",
         help="Path to a directory containing the trained model.",
     )
     args = parser.parse_args()
