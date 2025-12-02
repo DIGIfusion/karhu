@@ -5,6 +5,7 @@ requires-python = ">=3.11"
 dependencies = [
     "f90nml>=1.4.4",
     "numpy==2.2.5",
+    "pytest>=9.0.1",
     "scipy>=1.16.3",
     "torch==2.4.1",
 ]
