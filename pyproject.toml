@@ -1,6 +1,6 @@
 [project]
 name = "KARHU"
-version = "0.1.0"
+version = "0.1.1"
 requires-python = ">=3.11"
 dependencies = [
     "f90nml>=1.4.4",
@@ -9,6 +9,7 @@ dependencies = [
     "scipy>=1.16.3",
     "torch==2.4.1",
 ]
+authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
 
 
 
