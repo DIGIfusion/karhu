@@ -78,7 +78,7 @@ if __name__ == "__main__":
         "-hd",
         "--helena_directory",
         type=str,
-        default="../example/data",
+        default="../example/data/jet_2H",
         help="Path to a directory containing HELENA equilibrium files fort.12, fort.20, fort.10.",
     )
     parser.add_argument(
