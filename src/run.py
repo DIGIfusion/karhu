@@ -30,10 +30,11 @@ def main(args: argparse.Namespace):
     run_dir = args.helena_directory
     model, scaling_params = load_model(model_dir=args.model_directory)
 
-
-    with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
-        with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
+    # TODO: We are assuming that fort.12 is gzipped already..., should check 
+    if not os.path.exists(os.path.join(run_dir, "fort.12")):
+        with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
+            with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
     x = get_model_input(
         filename_f10=os.path.join(run_dir, 'fort.10'),
