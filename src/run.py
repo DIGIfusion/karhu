@@ -94,7 +94,7 @@ if __name__ == "__main__":
         help="Path to a directory containing the trained model.",
     )
     parser.add_argument(
-        "-w"
+        "-w",
         "--write_file",
         type="str",
         default=None,
