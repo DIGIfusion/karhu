@@ -298,6 +298,21 @@ def descale_minmax(scaled_data, scaler_min, scaler_max):
     """
     return scaled_data * (scaler_max - scaler_min) + scaler_min
 
+def get_eps_from_f20(filename_f20):
+    with open(filename_f20, 'r') as file:
+        lines = file.readlines()
+
+    for line in lines:
+        if "EPS" in line:
+            break
+    """ The line we are looking for
+        $PHYS     EPS  =  0.319, ALFA =  2.356, B =  0.005, C =  1.000,
+    """
+    line = line.lstrip()[4:]
+    line = line.strip()
+    eps, *_ = line.split(",")
+    eps     = float(eps.split("="))
+    return eps
 
 def get_model_input(filename_f10, filename_f12, filename_f20, x_1, n_profile_points=64, ):
     """

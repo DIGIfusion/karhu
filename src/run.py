@@ -30,10 +30,11 @@ def main(args: argparse.Namespace):
     run_dir = args.helena_directory
     model, scaling_params = load_model(model_dir=args.model_directory)
 
-
-    with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
-        with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
+    # TODO: We are assuming that fort.12 is gzipped already..., should check 
+    if not os.path.exists(os.path.join(run_dir, "fort.12")):
+        with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
+            with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
     x = get_model_input(
         filename_f10=os.path.join(run_dir, 'fort.10'),
@@ -51,6 +52,10 @@ def main(args: argparse.Namespace):
     )
     y_pred = 0.0 if y_pred <= 0.0 else y_pred
     print(f"KARHU predicted growthrate: {y_pred}")
+
+    if args.write_file is not None:
+        with open(args.write_file, 'w') as file:
+            file.write(f"{y_pred}")
     return y_pred
 
 def load_model(model_dir: str):
@@ -78,7 +83,7 @@ if __name__ == "__main__":
         "-hd",
         "--helena_directory",
         type=str,
-        default="../example/data",
+        default="../example/data/jet_2H",
         help="Path to a directory containing HELENA equilibrium files fort.12, fort.20, fort.10.",
     )
     parser.add_argument(
@@ -87,6 +92,13 @@ if __name__ == "__main__":
         type=str,
         default="../model/jet_2H",
         help="Path to a directory containing the trained model.",
+    )
+    parser.add_argument(
+        "-w",
+        "--write_file",
+        type=str,
+        default=None,
+        help="Path to write the outputs to"
     )
     args = parser.parse_args()
     main(args)
