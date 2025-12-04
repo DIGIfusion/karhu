@@ -96,7 +96,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-w",
         "--write_file",
-        type="str",
+        type=str,
         default=None,
         help="Path to write the outputs to"
     )
