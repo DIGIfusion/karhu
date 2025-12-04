@@ -52,6 +52,10 @@ def main(args: argparse.Namespace):
     )
     y_pred = 0.0 if y_pred <= 0.0 else y_pred
     print(f"KARHU predicted growthrate: {y_pred}")
+
+    if args.write_file is not None:
+        with open(args.write_file, 'w') as file:
+            file.write(f"{y_pred}")
     return y_pred
 
 def load_model(model_dir: str):
@@ -88,6 +92,13 @@ if __name__ == "__main__":
         type=str,
         default="../model/jet_2H",
         help="Path to a directory containing the trained model.",
+    )
+    parser.add_argument(
+        "-w"
+        "--write_file",
+        type="str",
+        default=None,
+        help="Path to write the outputs to"
     )
     args = parser.parse_args()
     main(args)
