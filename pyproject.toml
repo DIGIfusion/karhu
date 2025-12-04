@@ -1,16 +1,26 @@
 [project]
 name = "KARHU"
 version = "0.1.1"
-requires-python = ">=3.11"
+requires-python = ">=3.7"
 dependencies = [
     "f90nml>=1.4.4",
-    "numpy==2.2.5",
-    "pytest>=9.0.1",
-    "scipy>=1.16.3",
-    "torch==2.4.1",
+#    "numpy==2.2.5",
+    "numpy==1.21.6",
+#    "pytest>=9.0.1",
+    "pytest==7.1.1",
+#    "scipy>=1.16.3",
+    "scipy>=1.7.1",
+#    "torch==2.4.1",
+    "torch==1.13.0",
 ]
 authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
 
+[build-system]
+requires = [
+  "setuptools>=64,<70",
+  "wheel"
+]
+build-backend = "setuptools.build_meta"
 
 
 [tool.setuptools]
