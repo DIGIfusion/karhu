@@ -1,6 +1,7 @@
 """
 Helper functions for creating model input from HELENA fort.10, fort.12, and fort.20 files.
 """
+from __future__ import annotations 
 
 from scipy.interpolate import interp1d
 import numpy as np
@@ -360,6 +361,7 @@ def get_model_input(filename_f10, filename_f12, filename_f20, x_1, n_profile_poi
         torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
     ]
+
 
 
 def scale_model_input(x, scaling_params):
