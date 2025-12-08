@@ -29,15 +29,25 @@ def load_from_eqdsk(eqdsk_path: str):
 
     with open(eqdsk_path, "r") as file: 
         eqdsk = geqdsk.read(file)
+    if isinstance(eqdsk, dict): 
+        CS = np.linspace(0, 1, eqdsk["nx"])
+        P      = eqdsk["pres"]
+        RBPHI  = eqdsk["fpol"] 
+        QS     = eqdsk["qpsi"] 
+        rbndry = eqdsk["rbdry"]
+        zbndry = eqdsk["zbdry"]
+        B0     = eqdsk["bcentr"]
+        R0     = eqdsk["rcentr"]
 
-    CS = np.linspace(0, 1, eqdsk.nx)
-    P  = eqdsk.pres
-    RBPHI = eqdsk.fpol 
-    QS    = eqdsk.qpsi 
-    rbndry = eqdsk.rbdry
-    zbndry = eqdsk.zbdry
-    B0     = eqdsk.bcentr
-    R0     = eqdsk.rcentr
+    else: 
+        CS = np.linspace(0, 1, eqdsk.nx)
+        P  = eqdsk.pres
+        RBPHI = eqdsk.fpol 
+        QS    = eqdsk.qpsi 
+        rbndry = eqdsk.rbdry
+        zbndry = eqdsk.zbdry
+        B0     = eqdsk.bcentr
+        R0     = eqdsk.rcentr
 
     # TODO: this is not correct, R0, B0, etc.,..
 
