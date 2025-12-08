@@ -1,4 +1,4 @@
-name: Pylint
+name: IO testing
 
 on: [push]
 
@@ -15,7 +15,7 @@ jobs:
       with:
           python-version: ${{ matrix.python-version }}
     - name: Set up Python
-      run: uv sync --locked --all-extras --dev
+      run: uv pip install . 
 
     - name: Run tests
       # For example, using `pytest`
