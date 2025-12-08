@@ -8,14 +8,10 @@ dependencies = [
     "pytest",
     "scipy",
     "torch",
+    "freeqdsk"
 ]
 
 authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
-
-[project.optional-dependencies]
-tests = [
-    "freeqdsk>=0.4.0",
-]
 
 
 [build-system]
