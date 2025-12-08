@@ -15,9 +15,5 @@ jobs:
       with:
           python-version: ${{ matrix.python-version }}
           enable-cache: true
-    # - name: Set up Python environment
-    #   run: uv venv .venv ; source .venv/bin/activate
-    # - name: Install karhu
-    #   run: uv pip install . 
     - name: Run tests
       run: uv run pytest tests
