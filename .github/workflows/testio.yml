@@ -14,9 +14,10 @@ jobs:
       uses: astral-sh/setup-uv@v7
       with:
           python-version: ${{ matrix.python-version }}
-    - name: Set up Python
+    - name: Set up Python environment
+      run: uv venv .venv
+    - name: Install karhu
       run: uv pip install . 
-
     - name: Run tests
       # For example, using `pytest`
       run: uv run pytest tests
