@@ -5,14 +5,17 @@ requires-python = ">=3.8"
 dependencies = [
     "f90nml",
     "numpy",
-    "pytest",
     "scipy",
     "torch",
-    "freeqdsk"
 ]
 
 authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
 
+[dependency-groups]
+dev = [
+  "pytest", 
+  "freeqdsk"
+]
 
 [build-system]
 requires = [
