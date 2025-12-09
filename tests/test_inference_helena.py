@@ -37,7 +37,7 @@ def load_data_from_helena_directory(helena_directory: str) -> dict[str, np.ndarr
     Profiles come from mapping file (fort.12) --> input into MISHKA 
     They are normalised such that p(psi=0.0) = 1, 
     """
-    RADIUS: float = f12data["RADIUS"]                             # geometric axis major radius 
+    RADIUS: float = f12data["RADIUS"]                             # geometric axis minor radius??  
     # rest are numpy arrays
     P, RBPHI, QS = f12data["P0"], f12data["RBPHI"], f12data["QS"] # normalised profiles
     CS = f12data["CS"]                                            # Helena uses sqrt(psi) grid, i.e., CS**2 = PSI, CS**4 = PSI**2, 
