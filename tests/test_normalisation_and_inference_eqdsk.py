@@ -90,7 +90,7 @@ def calculate_area(x, z):
     area = abs(area) / 2.0
     return area 
 
-@pytest.mark.skipif(sys.version_info <= (3, 8), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_normalisation(eqdskpath):
     eqdsk = load_eqdsk(eqdskpath)
@@ -115,7 +115,7 @@ def test_normalisation(eqdskpath):
     assert np.isclose(area_normalised * (radius * R_mag) ** 2, area_si)
     
 
-@pytest.mark.skipif(sys.version_info <= (3, 8), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath): 
     
