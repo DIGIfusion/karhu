@@ -37,7 +37,7 @@ where PRESSURE_SI [N / m^2] plasma pressure          (defined on PSIN)
 
 The data must further be scaled/normalised for machine learning purposes. **ADD MORE INFO HERE** 
 
-The output of `KARHU`, once denormalised for ML purposes, is $\sqrt{\omega}$. 
+The output of `KARHU`, once denormalised for ML purposes, is $\gamma$, i.e., when comparing with the line `INSTABILITY = ...` in `MISHKA/fort.20` and `MISHKA/fort.22` has $\sqrt{\gamma}$, so take the square root of the output of `MISHKA`.  
 
 
 ## Instalation 
