@@ -32,8 +32,13 @@ where PRESSURE_SI [N / m^2] plasma pressure          (defined on PSIN)
       eps         [-]       inverse aspect ratio of the plasma boundary
       radius      [-]       dimensionless value, used to scale R/X boundary between -1 and 1
                             is equal to eps * R_geom / R_magaxis,   
-                            where R_geom is the geometric axis```
+                            where R_geom is the geometric axis
 ```
+
+The data must further be scaled/normalised for machine learning purposes. **ADD MORE INFO HERE** 
+
+The output of `KARHU`, once denormalised for ML purposes, is $\sqrt{\omega}$. 
+
 
 ## Instalation 
 
