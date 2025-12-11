@@ -11,10 +11,9 @@ import numpy as np
 import torch
 
 from karhu.utils_input import (
-    get_f12_data,
-    read_fort20_beta_section,
     interpolate_profile, minmax,
     scale_model_output)
+from karhu.utils_helena import get_f12_data, read_fort20_beta_section
 from karhu.models import load_model
 
 TESTDATADIR = os.path.dirname(__file__)
