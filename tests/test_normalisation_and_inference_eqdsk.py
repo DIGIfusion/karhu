@@ -31,7 +31,7 @@ from freeqdsk import geqdsk
 import torch 
 
 from karhu.models import load_model
-from karhu.utils_input import interpolate_psi_profile, scale_model_input, descale_minmax
+from karhu.utils_input import interpolate_profile, scale_model_input, descale_minmax
 
 mu_0 = 4E-7 * np.pi  # TODO: move somewhere else
 TESTDIR = os.path.dirname(__file__)
@@ -139,16 +139,16 @@ def test_inference_from_eqdsk(eqdskpath):
     KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
     KARHU_VX_AXIS   = np.linspace(-0.999, 0.999, ninterp)   #
 
-    pressure_karhu = interpolate_psi_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_psi_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_psi_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
+    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
+    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
+    q_karhu = interpolate_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
 
     # FIXME: version 1.0 of the model only takes top half of the boundary
     reduced_bndry = zbndry_karhu > 0.0
     rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
     sorted_idx = np.argsort(rbndry_top)
     rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_psi_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
 
     # FIXME: can just cast everything as double later
     x = [torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
@@ -188,9 +188,9 @@ def load_from_eqdsk(eqdskpath):
     KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
     KARHU_VX_AXIS   = np.linspace(-0.97, 0.97, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999... 
 
-    pressure_karhu = interpolate_psi_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_psi_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_psi_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
+    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
+    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
+    q_karhu = interpolate_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
     q_karhu = abs(q_karhu) # TODO/FIXME: Are the q-s normalised?  
 
     # FIXME: version 1.0 of the model only takes top half of the boundary
@@ -198,7 +198,7 @@ def load_from_eqdsk(eqdskpath):
     rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
     sorted_idx = np.argsort(rbndry_top)
     rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_psi_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
 
     x = [torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
          torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0), 
@@ -249,9 +249,9 @@ def load_from_helena(helena_directory):
     KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
     KARHU_VX_AXIS   = np.linspace(-0.97, 0.97, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999... 
     
-    pressure_karhu = interpolate_psi_profile(CS, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_psi_profile(CS, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_psi_profile(CS, q_karhu, KARHU_PSIN_AXIS)
+    pressure_karhu = interpolate_profile(CS, pressure_karhu, KARHU_PSIN_AXIS)
+    rbphi_karhu = interpolate_profile(CS, rbphi_karhu, KARHU_PSIN_AXIS)
+    q_karhu = interpolate_profile(CS, q_karhu, KARHU_PSIN_AXIS)
 
 
     # FIXME: version 1.0 of the model only takes top half of the boundary
@@ -259,7 +259,7 @@ def load_from_helena(helena_directory):
     rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
     sorted_idx = np.argsort(rbndry_top)
     rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_psi_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
 
     x = [torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
          torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0), 

@@ -11,14 +11,14 @@ import torch
 import f90nml
 
 
-def interpolate_psi_profile(x_0, y_0, x_1):
+def interpolate_profile(x_0, y_0, x_1):
     """
     y_0 is the values at positions x_0
     x_0 is the corresponding locations between 0 and 1
     x_1 is the new locations where you want to interpolate y_0
     """
 
-    interpolation_function = interp1d(x_0, y_0, kind="linear")
+    interpolation_function = interp1d(x_0, y_0, kind="linear", fill_value='extrapolate')
 
     # Use the interpolation function to find y_1 at new x_1 locations
     y_1 = interpolation_function(x_1)
@@ -350,10 +350,10 @@ def get_model_input(filename_f10, filename_f12, filename_f20, x_1, n_profile_poi
     # New grid
     vx_1 = np.linspace(-0.999, 0.999, n_profile_points)
     x_0 = CS
-    p_1 = interpolate_psi_profile(x_0, P, x_1)
-    qs_1 = interpolate_psi_profile(x_0, QS, x_1)
-    rbphi_1 = interpolate_psi_profile(x_0, RBPHI, x_1)
-    vy_1 = interpolate_psi_profile(x_0=VX, y_0=VY, x_1=vx_1)
+    p_1 = interpolate_profile(x_0, P, x_1)
+    qs_1 = interpolate_profile(x_0, QS, x_1)
+    rbphi_1 = interpolate_profile(x_0, RBPHI, x_1)
+    vy_1 = interpolate_profile(x_0=VX, y_0=VY, x_1=vx_1)
 
     return [
         torch.tensor(p_1, dtype=torch.float32).unsqueeze(0).unsqueeze(0),

@@ -10,7 +10,7 @@ import f90nml
 import numpy as np
 import torch 
 
-from karhu.utils_input import get_f12_data, read_fort20_beta_section, interpolate_psi_profile, minmax, scale_model_output
+from karhu.utils_input import get_f12_data, read_fort20_beta_section, interpolate_profile, minmax, scale_model_output
 from karhu.models import load_model
 
 TESTDATADIR = os.path.dirname(__file__)
@@ -73,7 +73,7 @@ def load_data_from_helena_directory(helena_directory: str) -> dict[str, np.ndarr
 def interpolate_profiles_onto_grid(newgrid, oldgrid, profiles: list): 
     new_profiles = []
     for _prof in profiles: 
-        new_prof = interpolate_psi_profile(oldgrid, _prof, newgrid)
+        new_prof = interpolate_profile(oldgrid, _prof, newgrid)
         new_profiles.append(new_prof)
     return new_profiles
 
