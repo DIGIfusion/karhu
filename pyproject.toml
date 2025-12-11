@@ -1,5 +1,5 @@
 [project]
-name = "KARHU"
+name = "karhu"
 version = "0.1.1"
 requires-python = ">=3.8"
 dependencies = [
@@ -15,6 +15,13 @@ authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Ada
 dev = [
   "pytest", 
   "freeqdsk"
+]
+
+# optional dependency groups (pip install .[dev])
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "freeqdsk",
 ]
 
 [build-system]
