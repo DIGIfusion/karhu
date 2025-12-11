@@ -1,11 +1,12 @@
+import os
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import logging
-import os 
-import json 
 
 logger = logging.getLogger(__name__)
+
 
 def load_model(model_dir: str):
     """ The model directory should contain
@@ -24,7 +25,6 @@ def load_model(model_dir: str):
     )
     model.eval()
     return model, scaling_params
-
 
 
 class CNN_gmax(nn.Module):
@@ -176,4 +176,3 @@ class CNN_gmax(nn.Module):
         desc.append("==================================")
 
         return "\n".join(desc)
-

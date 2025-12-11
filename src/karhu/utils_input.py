@@ -1,7 +1,7 @@
 """
 Helper functions for creating model input from HELENA fort.10, fort.12, and fort.20 files.
 """
-from __future__ import annotations 
+from __future__ import annotations
 
 from scipy.interpolate import interp1d
 import numpy as np
@@ -299,6 +299,7 @@ def descale_minmax(scaled_data, scaler_min, scaler_max):
     """
     return scaled_data * (scaler_max - scaler_min) + scaler_min
 
+
 def get_eps_from_f20(filename_f20):
     with open(filename_f20, 'r') as file:
         lines = file.readlines()
@@ -312,8 +313,9 @@ def get_eps_from_f20(filename_f20):
     line = line.lstrip()[4:]
     line = line.strip()
     eps, *_ = line.split(",")
-    eps     = float(eps.split("="))
+    eps = float(eps.split("="))
     return eps
+
 
 def get_model_input(filename_f10, filename_f12, filename_f20, x_1, n_profile_points=64, ):
     """
@@ -361,7 +363,6 @@ def get_model_input(filename_f10, filename_f12, filename_f20, x_1, n_profile_poi
         torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
     ]
-
 
 
 def scale_model_input(x, scaling_params):

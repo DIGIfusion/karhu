@@ -58,6 +58,7 @@ def main(args: argparse.Namespace):
             file.write(f"{y_pred}")
     return y_pred
 
+
 def load_model(model_dir: str):
     """ The model directory should contain
     - model.pt containing the weights
@@ -75,6 +76,7 @@ def load_model(model_dir: str):
     )
     model.eval()
     return model, scaling_params
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
