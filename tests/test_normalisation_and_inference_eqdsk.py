@@ -25,15 +25,18 @@ import sys
 import os
 import glob
 
+import f90nml
 import pytest
 import numpy as np
 from freeqdsk import geqdsk
 import torch
 
 from karhu.models import load_model
-from karhu.utils_input import (convert_profiles_si_to_dimensionless, interpolate_profile,
-                               scale_model_input, descale_minmax)
-import f90nml
+from karhu.utils_input import (
+    convert_profiles_si_to_dimensionless,
+    interpolate_profile,
+    scale_model_input,
+    descale_minmax)
 from karhu.utils_helena import get_f12_data, read_fort20_beta_section
 
 
@@ -41,7 +44,8 @@ TESTDIR = os.path.dirname(__file__)
 TESTDATADIR = os.path.join(TESTDIR, "data")
 
 eqdsk_testfiles = glob.glob(os.path.join(TESTDATADIR, "eqdsk", "*"))
-models_directory  = os.path.join(TESTDIR, "..", "model", "jet_2H") # TODO: add more models
+models_directory = os.path.join(TESTDIR, "..", "model", "jet_2H")  # TODO: add more models
+diiid_models_directory = os.path.join(TESTDIR, "..", "model", "diii-d")  # TODO: add more models
 
 
 def load_eqdsk(eqfpath: str):
@@ -91,8 +95,6 @@ def test_normalisation(eqdskpath):
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath):
-    if "DIIID" in eqdskpath:
-        pytest.skip("DIID-equil known to not be interpolatable here")
     eqdsk = load_eqdsk(eqdskpath)
     psin1d = np.linspace(0, 1.0, eqdsk.nx)
     R_mag  = eqdsk.rmagx
@@ -133,7 +135,10 @@ def test_inference_from_eqdsk(eqdskpath):
         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
     ]
 
-    model, scaling_params = load_model(models_directory)
+    if "DIIID" in eqdskpath:
+        model, scaling_params = load_model(diiid_models_directory)
+    else:
+        model, scaling_params = load_model(models_directory)
     x = scale_model_input(x, scaling_params)
     with torch.no_grad():
         y_pred = model(*x)

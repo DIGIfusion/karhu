@@ -115,4 +115,5 @@ def test_inference(heldir, modeldir):
         b_mag=model_inputs["b_mag"],
         r_mag=model_inputs["r_mag"])
     y_pred = scale_model_output(y_pred_norm, scaling_params)
+    print(f"KARHU predicted growthrate: {y_pred}")
     assert y_pred > 0.0
