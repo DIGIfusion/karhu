@@ -5,11 +5,10 @@ import gzip
 import shutil
 import logging
 import argparse
-
 import torch
-import numpy as np
 
-from karhu.utils_input import get_model_input, scale_model_input, descale_minmax
+from karhu.utils_input import scale_model_input, descale_minmax
+from karhu.utils_helena import get_model_input
 from karhu.models import CNN_gmax
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -23,25 +22,17 @@ def main(args: argparse.Namespace):
     Args:
         args (argparse.Namespace): Namespace containing the configuration parameters.
     """
-
-    n_profile_points = 64
-    x_1 = np.linspace(1e-5, 1, n_profile_points) ** (1 / 4)
-
     run_dir = args.helena_directory
     model, scaling_params = load_model(model_dir=args.model_directory)
 
+    if not os.path.exists(os.path.join(run_dir, "fort.12")):
+        if not os.path.exists(os.path.join(run_dir, "fort.12.gz")):
+            raise FileNotFoundError(f"Neither fort.12 nor fort.12.gz found in {run_dir}")
+        with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
+            with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
 
-    with gzip.open(os.path.join(run_dir, 'fort.12.gz'), 'rb') as f_in:
-        with open(os.path.join(run_dir, 'fort.12'), 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
-
-    x = get_model_input(
-        filename_f10=os.path.join(run_dir, 'fort.10'),
-        filename_f12=os.path.join(run_dir, 'fort.12'),
-        filename_f20=os.path.join(run_dir, 'fort.20'),
-        x_1=x_1,
-        n_profile_points=n_profile_points,)
-
+    x = get_model_input(heldir=run_dir)
     x = scale_model_input(x, scaling_params)
     y_pred = model(*x)
     y_pred = descale_minmax(
@@ -51,7 +42,12 @@ def main(args: argparse.Namespace):
     )
     y_pred = 0.0 if y_pred <= 0.0 else y_pred
     print(f"KARHU predicted growthrate: {y_pred}")
+
+    if args.write_file is not None:
+        with open(args.write_file, 'w') as file:
+            file.write(f"{y_pred}")
     return y_pred
+
 
 def load_model(model_dir: str):
     """ The model directory should contain
@@ -71,6 +67,7 @@ def load_model(model_dir: str):
     model.eval()
     return model, scaling_params
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Machine learning surrogate model for ideal MHD stability code MISHKA.")
@@ -78,7 +75,7 @@ if __name__ == "__main__":
         "-hd",
         "--helena_directory",
         type=str,
-        default="../example/data",
+        default="../example/data/jet_2H",
         help="Path to a directory containing HELENA equilibrium files fort.12, fort.20, fort.10.",
     )
     parser.add_argument(
@@ -87,6 +84,13 @@ if __name__ == "__main__":
         type=str,
         default="../model/jet_2H",
         help="Path to a directory containing the trained model.",
+    )
+    parser.add_argument(
+        "-w",
+        "--write_file",
+        type=str,
+        default=None,
+        help="Path to write the outputs to"
     )
     args = parser.parse_args()
     main(args)

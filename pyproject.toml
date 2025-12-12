@@ -1,24 +1,42 @@
 [project]
 name = "karhu"
-version = "0.1.0"
-description = "KARHU Surrogate Model"
-authors = [
-    { name = "Your Name", email = "your@email.com" },
-]
+version = "0.1.1"
+requires-python = ">=3.8"
 dependencies = [
-    "f90nml==1.4.4",
-    "json5",
-    "matplotlib",
-    "mlflow==2.8.1",
+    "f90nml",
     "numpy",
-    "SciencePlots==2.1.1",
-    "scikit-image",
-    "scikit-learn",
     "scipy",
     "torch",
-    "urllib3",
+]
+
+authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
+
+[dependency-groups]
+dev = [
+  "pytest", 
+  "freeqdsk"
+]
+
+# optional dependency groups (pip install .[dev])
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "freeqdsk",
 ]
 
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = [
+  "setuptools>=64,<70",
+  "wheel"
+]
 build-backend = "setuptools.build_meta"
+
+
+[tool.setuptools]
+# We want setuptools to treat `src` as the root for packages
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+# This replicates `find_packages(where="src")`
+where = ["src"]
+

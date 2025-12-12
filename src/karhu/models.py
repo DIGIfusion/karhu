@@ -1,9 +1,31 @@
+import os
+import json
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np 
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
+    """ The model directory should contain
+    - model.pt containing the weights
+    - scaling_params.json containing the scaling parameters for the inputs and outputs
+    """
+
+    # Load scaling parameters
+    with open(os.path.join(model_dir, "scaling_params.json",), "r", encoding="utf-8",) as f:
+        scaling_params = json.load(f)
+
+    # Load model
+    model = CNN_gmax()
+    model.load_state_dict(
+        torch.load(os.path.join(model_dir, "model.pt"), weights_only=True,)
+    )
+    model.eval()
+    return model, scaling_params
 
 
 class CNN_gmax(nn.Module):
@@ -155,4 +177,3 @@ class CNN_gmax(nn.Module):
         desc.append("==================================")
 
         return "\n".join(desc)
-

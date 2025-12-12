@@ -1,7 +1,7 @@
 # Custom
 *.out
 fort.12
-
+!tests/data/helena_jet/fort.12
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
