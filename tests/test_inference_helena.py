@@ -1,6 +1,8 @@
 """
 Inference from HELENA
 """
+from future import __annotations__
+
 import os
 import pytest
 
