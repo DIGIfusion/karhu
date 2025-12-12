@@ -1,8 +1,6 @@
 """
 Helper functions for creating model input from HELENA fort.10, fort.12, and fort.20 files.
 """
-from __future__ import annotations
-
 from scipy.interpolate import interp1d
 import numpy as np
 import os

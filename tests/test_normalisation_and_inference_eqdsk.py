@@ -19,7 +19,6 @@ where PRESSURE_SI [N / m^2] plasma pressure          (defined on PSIN)
                             is equal to eps * R_geom / R_magaxis,  
                             where R_geom is the geometric axis
 """
-from __future__ import annotations
 
 import sys
 import os
