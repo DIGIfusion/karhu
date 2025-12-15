@@ -31,8 +31,8 @@ from freeqdsk import geqdsk
 import torch
 
 from karhu.models import load_model
+from karhu.common import convert_profiles_si_to_dimensionless
 from karhu.utils_input import (
-    convert_profiles_si_to_dimensionless,
     interpolate_profile,
     scale_model_input,
     descale_minmax)
