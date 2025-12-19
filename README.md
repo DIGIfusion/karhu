@@ -3,10 +3,9 @@
 KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD stability code MISHKA. This repository contains the surrogate model and helper functions for reading the necessary files. The training data will soon be available on Zenodo.
 
 
-See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
-
-See publication: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
-
+- See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
+- See publication: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
+- Full documentation: [https://digifusion.github.io/karhu/](https://digifusion.github.io/karhu/)
 
 The training data is available in folder ´data´. Future datasets will be hosted on Zenodo.
 
@@ -37,10 +36,9 @@ where PRESSURE_SI [N / m^2] plasma pressure          (defined on PSIN)
 
 The data must further be scaled/normalised for machine learning purposes. **ADD MORE INFO HERE** 
 
-The output of `KARHU`, once denormalised for ML purposes, is $\gamma$, i.e., when comparing with the line `INSTABILITY = ...` in `MISHKA/fort.20` and `MISHKA/fort.22` has $\sqrt{\gamma}$, so take the square root of the output of `MISHKA`.  
+The output of `KARHU`, once denormalised for ML purposes, is the growht rate $\gamma$ normalized by the Alfén frequency $\omega_A$. Comparing with the line `INSTABILITY = ...` in `MISHKA/fort.20` and `MISHKA/fort.22`, MISHKA outputs $\gamma^2$, so take the square root of the output of `MISHKA` to find the comparable $\gamma$. 
 
-
-## Instalation 
+## Installation 
 
 Easiest with the package manager [uv](https://docs.astral.sh/uv/getting-started/installation/), however, `uv` does not support python versions $\leq 3.8$. We use `uv` since it will manage dependencies in `pyproject.toml` for given python version, e.g., for `python==3.9` it finds `torch==2.8.0` and `numpy==2.0.2` while for `python==3.8` it finds `torch==2.4.1` and `numpy==1.24.4`. 
 
