@@ -40,7 +40,7 @@ The data must further be scaled/normalised for machine learning purposes. **ADD 
 The output of `KARHU`, once denormalised for ML purposes, is $\gamma$, i.e., when comparing with the line `INSTABILITY = ...` in `MISHKA/fort.20` and `MISHKA/fort.22` has $\sqrt{\gamma}$, so take the square root of the output of `MISHKA`.  
 
 
-## Instalation 
+## Installation 
 
 Easiest with the package manager [uv](https://docs.astral.sh/uv/getting-started/installation/), however, `uv` does not support python versions $\leq 3.8$. We use `uv` since it will manage dependencies in `pyproject.toml` for given python version, e.g., for `python==3.9` it finds `torch==2.8.0` and `numpy==2.0.2` while for `python==3.8` it finds `torch==2.4.1` and `numpy==1.24.4`. 
 
