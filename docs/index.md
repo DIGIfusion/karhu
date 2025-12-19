@@ -41,6 +41,39 @@ Now you should be able to run `tests`.
 ## Usage
 See tests and examples in the `examples/` directory for usage instructions.
 
+
+In `KARHU v1.x.x`, the inputs to the model are **ordered**, i.e., `forward(P, Q, RBPHI, ZBNDRY, BMAG, RMAG)`, where `P` is the pressure, `Q` is the safety factor and `RBPHI` is the poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `ZBNDRY` is the Z-coordinates of the LCFS defined on a unifrom R-grid from `R_min, R_max` with also `64` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
+
+Additionally, `P, RBPHI` are normalised such that: 
+
+```python
+KARHU_PRESSURE = PRESSURE_SI / (B_magaxis**2 / mu_0)
+KARHU_RBPHI    = RBPHI_SI    / (R_magaxis * B_magaxis)
+KARHU_RBDRY    = RBDRY_SI    / (radius * R_magaxis) - 1.0 / eps
+KARHU_ZBDRY    = ZBDRY_SI    / (radius * R_magaxis) 
+KARHU_Q        = Q
+
+"""
+where PRESSURE_SI [N / m^2] plasma pressure          (defined on PSIN)
+      RBPHI_SI    [Tm]      poloidal flux function   (defined on PSIN)
+      Q           []        q-profile, safety factor (defined on PSIN)
+      RBDRY_SI    [m]       R/X coordinates of plasma boundary
+      ZBDRY_SI    [m]       Z/Y coordinates of plasma boundary
+      B_magaxis   [T]       magnetic field strength at the magnetic axis 
+      R_magaxis   [m]       major radius at the magnetic axis 
+      eps         [-]       inverse aspect ratio of the plasma boundary
+      radius      [-]       dimensionless value, used to scale R/X boundary between -1 and 1
+                            is equal to eps * R_geom / R_magaxis,   
+                            where R_geom is the geometric axis
+"""
+```
+
+The data must further be scaled/normalised for machine learning purposes. **ADD MORE INFO HERE** 
+
+The output of `KARHU`, once denormalised for ML purposes, is the growht rate $\gamma$ normalized by the Alfén frequency $\omega_A$. Comparing with the line `INSTABILITY = ...` in `MISHKA/fort.20` and `MISHKA/fort.22`, MISHKA outputs $\gamma^2$, so take the square root of the output of `MISHKA` to find the comparable $\gamma$.  
+
+
+
 ## Citation
 If you use KARHU in your research, please cite:
 
