@@ -27,8 +27,6 @@ def interpolate_profile(x_0, y_0, x_1):
     return y_1
 
 
-
-
 def minmax(data, scaler_min, scaler_max):
     """
     Scale data to the range [0, 1] using min-max scaling.
