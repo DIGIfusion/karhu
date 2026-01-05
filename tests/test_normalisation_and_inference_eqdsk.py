@@ -127,7 +127,10 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
     for _x_eq, _x_he in zip(x_eqdsk, x_helena):
         assert torch.allclose(abs(_x_eq), abs(_x_he), rtol=0.25, atol=1.0)
 
-    model, scaling_params = load_model(models_directory)
+    if "DIIID" in eqdskpath:
+        model, scaling_params = load_model(diiid_models_directory)
+    else:
+        model, scaling_params = load_model(models_directory)
     predictions = []
     for x in [x_eqdsk, x_helena]:
         x = scale_model_input(x, scaling_params)
