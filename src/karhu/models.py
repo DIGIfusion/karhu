@@ -20,12 +20,21 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
         scaling_params = json.load(f)
 
     # Load model
-    model = CNN_gmax()
+    model = CNN_gmax(
+        conv_input_sizes=[64, 64, 64, 128],
+        scalar_inputs=2,
+        conv_kernel_sizes=[7, 5, 3],
+        out_channels=16,
+        pool_kernel_size=2,
+        fc_hidden_dims=[128, 64],
+        classifier=False
+    )
     model.load_state_dict(
         torch.load(os.path.join(model_dir, "model.pt"), weights_only=True,)
     )
     model.eval()
     return model, scaling_params
+
 
 
 class CNN_gmax(nn.Module):
@@ -187,7 +196,6 @@ class CNN_gmax(nn.Module):
             f"Total flattened feature size (4 inputs + b_mag + r_mag): {self.total_flatten_dim + self.scalar_inputs}"
         )
         desc.append("")
-
         desc.append("Fully Connected Layers:")
         desc.append(
             f"  fc1: input={self.total_flatten_dim + self.scalar_inputs}, output={self.fc1.out_features}"
@@ -199,5 +207,4 @@ class CNN_gmax(nn.Module):
             f"  fc3: input={self.fc2.out_features}, output={self.fc3.out_features}"
         )
         desc.append("==================================")
-
         return "\n".join(desc)

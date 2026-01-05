@@ -1,6 +1,6 @@
 import numpy as np
 from freeqdsk import geqdsk
-from karhu.common import convert_profiles_si_to_dimensionless
+from karhu.common import convert_profiles_si_to_dimensionless, get_polar_from_rz
 from karhu.utils_input import interpolate_profile
 import torch
 
@@ -24,6 +24,7 @@ def load_from_eqdsk(eqdskpath):
     ninterp = 64
     KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
     KARHU_VX_AXIS   = np.linspace(-0.97, 0.97, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999...
+    KARHU_THETA_AXIS = np.linspace(1e-5, 2*np.pi, ninterp*2)
 
     pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
     rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
@@ -31,17 +32,22 @@ def load_from_eqdsk(eqdskpath):
     q_karhu = abs(q_karhu)  # TODO/FIXME: Are the q-s normalised?
 
     # FIXME: version 1.0 of the model only takes top half of the boundary
-    reduced_bndry = zbndry_karhu > 0.0
-    rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
-    sorted_idx = np.argsort(rbndry_top)
-    rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+    # reduced_bndry = zbndry_karhu > 0.0
+    # rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
+    # sorted_idx = np.argsort(rbndry_top)
+    # rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
+    # zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+
+    symmetric = False
+    rhobndry, thetabndry = get_polar_from_rz(r_vals=rbndry_karhu, z_vals=zbndry_karhu, symmetric=symmetric)
+    rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=KARHU_THETA_AXIS)
+
 
     x = [
         torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(zbndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(rhobndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
     ]

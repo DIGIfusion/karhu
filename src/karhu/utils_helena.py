@@ -93,6 +93,7 @@ def read_fort20_beta_section(filename: str) -> tuple[float]:
         B0,
     )
 
+
 def read_lines2(lines, start, end):
     """    Read lines from a list of strings and convert them to a numpy array of floats.
     Args:
@@ -316,12 +317,11 @@ def load_from_helena(helena_directory: str) -> list[np.ndarray]:
 
     rbndry_karhu = rbdry
     zbndry_karhu = zbdry
-    
-    
+
     ninterp = 64
     KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
     KARHU_VX_AXIS   = np.linspace(-0.999, 0.999, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999...
-    KARHU_THETA_AXIS = np.linspace(1e-5, 2*np.pi, ninterp)
+    KARHU_THETA_AXIS = np.linspace(1e-5, 2*np.pi, ninterp*2)
 
     pressure_karhu = interpolate_profile(CS, pressure_karhu, KARHU_PSIN_AXIS)
     rbphi_karhu = interpolate_profile(CS, rbphi_karhu, KARHU_PSIN_AXIS)

@@ -30,7 +30,7 @@ import numpy as np
 from freeqdsk import geqdsk
 import torch
 
-from karhu.models import load_model
+from karhu import load_model
 from karhu.common import convert_profiles_si_to_dimensionless
 from karhu.utils_input import (
     interpolate_profile,
@@ -94,45 +94,7 @@ def test_normalisation(eqdskpath):
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath):
-    eqdsk = load_eqdsk(eqdskpath)
-    psin1d = np.linspace(0, 1.0, eqdsk.nx)
-    R_mag  = eqdsk.rmagx
-    B_mag  = eqdsk.fpol[0] / eqdsk.rmagx
-
-    R_geom = (eqdsk.rbdry.max() + eqdsk.rbdry.min()) / 2.0
-    a_geom = (eqdsk.rbdry.max() - eqdsk.rbdry.min()) / 2.0
-    eps    = a_geom / R_geom
-
-    radius = eps * R_geom / R_mag
-    pressure_karhu, rbphi_karhu, rbndry_karhu, zbndry_karhu = convert_profiles_si_to_dimensionless(eqdsk.pressure, eqdsk.fpol, eqdsk.rbdry, eqdsk.zbdry,
-                                                                                                   radius, R_mag, eps, B_mag, )
-   
-    q_karhu = eqdsk.qpsi
-   
-    ninterp = 64
-    KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
-    KARHU_VX_AXIS   = np.linspace(-0.999, 0.999, ninterp)   #
-
-    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
-
-    # FIXME: version 1.0 of the model only takes top half of the boundary
-    reduced_bndry = zbndry_karhu > 0.0
-    rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
-    sorted_idx = np.argsort(rbndry_top)
-    rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
-
-    # FIXME: can just cast everything as double later
-    x = [
-        torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(zbndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
-        torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
-    ]
+    x = load_from_eqdsk(eqdskpath)
 
     if "DIIID" in eqdskpath:
         model, scaling_params = load_model(diiid_models_directory)
@@ -172,6 +134,7 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
         with torch.no_grad():
             y_pred = model(*x)
         y_pred = descale_minmax(y_pred.item(), *scaling_params["growthrate"])
+        y_pred = np.max((0.0, y_pred))
         # assert y_pred >= 0.0  # TODO: have some benchmark cases?
         predictions.append(y_pred)
     y_pred_eqdsk, y_pred_helena = predictions
