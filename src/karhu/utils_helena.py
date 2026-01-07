@@ -3,7 +3,10 @@ import math
 
 import numpy as np 
 import f90nml 
+import torch
+
 from karhu.utils_input import interpolate_profile
+from karhu.common import get_polar_from_rz
 
 
 def read_fort20_beta_section(filename: str) -> tuple[float]:
@@ -89,6 +92,7 @@ def read_fort20_beta_section(filename: str) -> tuple[float]:
         radius,
         B0,
     )
+
 
 def read_lines2(lines, start, end):
     """    Read lines from a list of strings and convert them to a numpy array of floats.
@@ -269,49 +273,70 @@ def get_eps_from_f20(filename_f20):
     return eps
 
 
-def get_model_input(heldir: str) -> list[np.ndarray]:
+def load_from_helena(helena_directory: str) -> list[np.ndarray]:
     """
     Prepares the inputs to KARHU. 
-    -- Reads relevant data from HELENA
-    -- Interpolates onto the common axis (psi/rbndry) used for KARHU
+    - Reads relevant data from HELENA
+    - Interpolates onto the common axis (psi/rbndry) used for KARHU.
+    - Converts data to tensors
     
-    Data must still be converted to torch tensors before passing to model
+    Profiles come from mapping file (fort.12) --> input into MISHKA
+    They are normalised such that p(psi=0.0) = 1,
+
     Args:
-        heldir (str): Path to the directory where fort.10/fort.12/fort.20 should be
+        helena_directory (str):
+            Path to the directory where fort.10/fort.12/fort.20 should be
     Returns:
         list: List of numpy arrays containing the model input.
     """
-    filename_f10 = os.path.join(heldir, "fort.10")
-    filename_f12 = os.path.join(heldir, "fort.12")
-    filename_f20 = os.path.join(heldir, "fort.20")
+    fname_f10: str = os.path.join(helena_directory, "fort.10")
+    fname_f12: str = os.path.join(helena_directory, "fort.12")
+    fname_f20: str = os.path.join(helena_directory, "fort.20")
 
-    
-    helena_input = f90nml.read(filename_f10)
-    out = get_f12_data(
-        filename_f12, variables=["CS", "QS", "RADIUS", "P0", "RBPHI", "VX", "VY"])
+    f12data = get_f12_data(fname_f12, variables=["CS", "QS", "RADIUS", "P0", "RBPHI", "VX", "VY"])
+    f10data = f90nml.read(fname_f10)
+   
+    RADIUS: float = f12data["RADIUS"]                             # geometric axis minor radius?? 
+    # rest are numpy arrays
+    P, RBPHI, QS = f12data["P0"], f12data["RBPHI"], f12data["QS"] # normalised profiles
+    CS = f12data["CS"]**2                                         # Helena uses sqrt(psi) grid, i.e., CS**2 = PSI, CS**4 = PSI**2,
+    rbdry, zbdry = f12data["VX"], f12data["VY"]                 # Boundary in R, Z
 
-    CS, P, RBPHI, QS = out["CS"], out["P0"], out["RBPHI"], out["QS"]
-    VX, VY = out["VX"], out["VY"]
-    RADIUS = out["RADIUS"]
+    # geometric axis magnetic field strength
+    *_, B_0H = read_fort20_beta_section(fname_f20)
 
-    (_, _, _, _, _, _, _, _, _, _, B0,) = read_fort20_beta_section(filename_f20)
+    epsilon = f10data["phys"]["eps"]  # inv. aspect ratio
+    R_vac   = f10data["phys"]["rvac"] # major radius in vaccuum
+    B_vac   = f10data["phys"]["bvac"]
+    R_mag   = (epsilon / RADIUS) * R_vac
+    B_mag   = B_vac / B_0H
 
-    # Get scaling parameters
-    epsilon = helena_input["phys"]["eps"]  # inverse aspect ratio
-    R_vac = helena_input["phys"]["rvac"]
-    # minor_radius = epsilon * R_vac
-    B_vac = helena_input["phys"]["bvac"]
-    R_mag = (epsilon / RADIUS) * R_vac
-    B_mag = B_vac / B0
+    pressure_karhu = P
+    rbphi_karhu    = RBPHI
+    q_karhu = QS
 
-    # New grid
-    n_profile_points = 64
-    x_1  = np.linspace(1e-5, 1, n_profile_points) ** (1 / 4)
-    vx_1 = np.linspace(-0.999, 0.999, n_profile_points)
-    x_0 = CS
-    p_1 = interpolate_profile(x_0, P, x_1)
-    qs_1 = interpolate_profile(x_0, QS, x_1)
-    rbphi_1 = interpolate_profile(x_0, RBPHI, x_1)
-    vy_1 = interpolate_profile(x_0=VX, y_0=VY, x_1=vx_1)
-    return [p_1, qs_1, rbphi_1, vy_1, B_mag, R_mag]
-    
+    rbndry_karhu = rbdry
+    zbndry_karhu = zbdry
+
+    ninterp = 64
+    KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
+    KARHU_VX_AXIS   = np.linspace(-0.999, 0.999, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999...
+    KARHU_THETA_AXIS = np.linspace(1e-5, 2*np.pi, ninterp*2)
+
+    pressure_karhu = interpolate_profile(CS, pressure_karhu, KARHU_PSIN_AXIS)
+    rbphi_karhu = interpolate_profile(CS, rbphi_karhu, KARHU_PSIN_AXIS)
+    q_karhu = interpolate_profile(CS, q_karhu, KARHU_PSIN_AXIS)
+
+    # Construct boundary in polar coordinates
+    symmetric = f10data["shape"]["ias"] ==  0
+    rhobndry, thetabndry = get_polar_from_rz(r_vals=rbdry, z_vals=zbdry, symmetric=symmetric)
+    rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=KARHU_THETA_AXIS)
+
+    x = [torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(rhobndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
+         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
+    ]
+    return x
