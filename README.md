@@ -5,13 +5,13 @@ KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD
 
 See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
 
-See publication: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
+See publication refering to KARHU v1.0.0: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
 
 
 The training data is available in folder ´data´. Future datasets will be hosted on Zenodo.
 
 
-In `v1`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, ZBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `ZBNDRY` is the Z-coordinates of the LCFS defined on a unifrom R-grid from `R_min, R_max` with also `64` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
+In `v1`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, RHOBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `RHOBNDRY` is the rho-coordinates (polar coordinate system) of the LCFS defined on a unifrom theta-grid from `0, 2 pi` with `128` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
 
 Additionally, `P, RBPHI` are normalised such that: 
 
