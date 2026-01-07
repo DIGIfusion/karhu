@@ -20,7 +20,7 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
         model_config = json.load(f)
 
     # Load model
-    model = CNN_gmax(
+    model = GMaxPredictor(
         conv_input_sizes=[64, 64, 64, 128],
         scalar_inputs=2,
         conv_kernel_sizes=[7, 5, 3],
@@ -36,9 +36,9 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     return model, model_config
 
 
-class CNN_gmax(nn.Module):
+class GMaxPredictor(nn.Module):
     """
-    CNN_gmax model for predicting gmax from input sequences.
+    GMaxPredictor model for predicting gmax from input sequences.
     The model consists of several convolutional layers followed by fully connected layers.
     The input consists of 4 sequences and 2 additional features (b_mag and r_mag).
     """
@@ -162,7 +162,7 @@ class CNN_gmax(nn.Module):
 
     def get_model_description(self):
         desc = []
-        desc.append("\n=== CNN_gmax Model Description ===")
+        desc.append("\n=== GMaxPredictor Model Description ===")
         desc.append(f"Input size (per sequence): {self.conv_input_sizes}")
         desc.append(f"Input size (per sequence): {self.scalar_inputs}")
         desc.append(f"Convolution kernel sizes: {self.conv_kernel_sizes}")
