@@ -19,8 +19,6 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     with open(os.path.join(model_dir, "model_config.json",), "r", encoding="utf-8",) as f:
         model_config = json.load(f)
 
-    scaling_params = model_config["scaling_params"]
-
     # Load model
     model = CNN_gmax(
         conv_input_sizes=[64, 64, 64, 128],
@@ -35,7 +33,7 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
         torch.load(os.path.join(model_dir, "model.pt"), weights_only=True,)
     )
     model.eval()
-    return model, scaling_params
+    return model, model_config
 
 
 class CNN_gmax(nn.Module):

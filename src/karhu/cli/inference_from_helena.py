@@ -12,9 +12,12 @@ WP     = torch.float32  # TODO: will this change in future?
 DEVICE = 'cuda' if torch.cuda.is_available() else "cpu"
     
 def main(model_dir: str, helena_dir: str):
-    model, scaling_params = load_model(model_dir)
+    model, model_config = load_model(model_dir)
+    scaling_params = model_config["scaling_params"]
     model = model.to(device=DEVICE, dtype=WP)
-    x = load_from_helena(helena_dir)
+    x = load_from_helena(helena_dir,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
     with torch.no_grad(): 
         y = model(*x)
