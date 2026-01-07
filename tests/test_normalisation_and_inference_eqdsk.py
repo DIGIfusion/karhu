@@ -67,6 +67,7 @@ def calculate_area(x, z):
     area = abs(area) / 2.0
     return area
 
+
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_normalisation(eqdskpath):
@@ -94,12 +95,15 @@ def test_normalisation(eqdskpath):
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath):
-    x = load_from_eqdsk(eqdskpath)
 
     if "DIIID" in eqdskpath:
-        model, scaling_params = load_model(diiid_models_directory)
+        model, model_config = load_model(diiid_models_directory)
     else:
-        model, scaling_params = load_model(models_directory)
+        model, model_config = load_model(models_directory)
+    scaling_params = model_config["scaling_params"]
+    x = load_from_eqdsk(eqdskpath,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
     with torch.no_grad():
         y_pred = model(*x)
@@ -121,16 +125,25 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
     """
     Inference with
     """
-    x_eqdsk = load_from_eqdsk(eqdskpath)
-    x_helena = load_from_helena(corresponding_helena)
+    if "DIIID" in eqdskpath:
+        model, model_config = load_model(diiid_models_directory)
+    else:
+        model, model_config = load_model(models_directory)
+    
+    x_eqdsk = load_from_eqdsk(
+        eqdskpath,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+    x_helena = load_from_helena(
+        corresponding_helena,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+
+    scaling_params = model_config["scaling_params"]
 
     for _x_eq, _x_he in zip(x_eqdsk, x_helena):
         assert torch.allclose(abs(_x_eq), abs(_x_he), rtol=0.25, atol=1.0)
 
-    if "DIIID" in eqdskpath:
-        model, scaling_params = load_model(diiid_models_directory)
-    else:
-        model, scaling_params = load_model(models_directory)
     predictions = []
     for x in [x_eqdsk, x_helena]:
         x = scale_model_input(x, scaling_params)
