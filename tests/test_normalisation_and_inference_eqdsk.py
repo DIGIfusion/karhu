@@ -96,6 +96,10 @@ def test_normalisation(eqdskpath):
 def test_inference_from_eqdsk(eqdskpath):
     name = os.path.basename(eqdskpath).split('.eqdsk')[0]
     corresponding_model = [fname for fname in glob.glob(os.path.join(models_directory, "*")) if name in fname]
+    if len(corresponding_model) == 0:
+        pytest.skip("No corresponding model for this test.")
+    corresponding_model = corresponding_model[0]
+    print(corresponding_model)
 
     model, model_config = load_model(corresponding_model)
     scaling_params = model_config["scaling_params"]
@@ -122,6 +126,10 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
         pytest.skip("No corresponding HELENA for this EQDSK")
     corresponding_helena = corresponding_helena[0]
     print(corresponding_helena)
+    if len(corresponding_model) == 0:
+        pytest.skip("No corresponding model for this EQDSK")
+    corresponding_model = corresponding_model[0]
+    print(corresponding_model)
     """
     Inference with
     """
