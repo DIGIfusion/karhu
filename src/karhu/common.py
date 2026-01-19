@@ -148,6 +148,7 @@ def get_rz_from_fourier(realfour, imagfour, r0=0.0, z0=0.0, amin=1.0):
     # Convert back to Cartesian
     rf = r0 + np.asarray(rad) * np.cos(thetafine)
     zf = z0 + np.asarray(rad) * np.sin(thetafine)
+
     return rf, zf
 
 
