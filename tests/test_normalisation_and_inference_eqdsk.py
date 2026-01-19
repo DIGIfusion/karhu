@@ -101,7 +101,8 @@ def test_inference_from_eqdsk(eqdskpath):
     else:
         model, model_config = load_model(models_directory)
     scaling_params = model_config["scaling_params"]
-    x = load_from_eqdsk(eqdskpath,
+    x = load_from_eqdsk(
+        eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
@@ -129,7 +130,7 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
         model, model_config = load_model(diiid_models_directory)
     else:
         model, model_config = load_model(models_directory)
-    
+
     x_eqdsk = load_from_eqdsk(
         eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],

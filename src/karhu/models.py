@@ -36,6 +36,7 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     return model, model_config
 
 
+
 class CNN_gmax(nn.Module):
     """
     CNN_gmax model for predicting gmax from input sequences.
