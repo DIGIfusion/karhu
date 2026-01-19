@@ -5,7 +5,26 @@ from karhu.utils_input import interpolate_profile
 import torch
 
 
-def load_from_eqdsk(eqdskpath):
+def load_from_eqdsk(eqdskpath: str, karhu_psin_axis, karhu_theta_axis,):
+    """
+    Load an EQDSK equilibrium file and convert profiles into KARHU model inputs.
+
+    Parameters
+    ----------
+    eqdskpath : str
+        Path to the EQDSK equilibrium file.
+
+    psin_axis : sequence of float
+        List-like object defining the normalized poloidal flux grid.
+
+    theta_axis : sequence of float
+        List-like object defining the poloidal angle grid in radians.
+
+    Returns
+    -------
+    x : list of torch.Tensor
+        List of tensors formatted for KARHU model input.
+    """
     with open(eqdskpath, "r") as f:
         eqdsk = geqdsk.read(f)
     psin1d = np.linspace(0, 1.0, eqdsk.nx)
@@ -21,18 +40,15 @@ def load_from_eqdsk(eqdskpath):
                                                                                                    radius, R_mag, eps, B_mag, )
     q_karhu = eqdsk.qpsi
 
-    ninterp = 64
-    KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
-    KARHU_THETA_AXIS = np.linspace(1e-5, 2*np.pi, ninterp*2)
-
-    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
+    # Interpolate the profiles to the axes used in model
+    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, karhu_psin_axis)
+    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, karhu_psin_axis)
+    q_karhu = interpolate_profile(psin1d, q_karhu, karhu_psin_axis)
     q_karhu = abs(q_karhu)  # TODO/FIXME: Are the q-s normalised?
 
-    symmetric = False
-    rhobndry, thetabndry = get_polar_from_rz(r_vals=rbndry_karhu, z_vals=zbndry_karhu, symmetric=symmetric)
-    rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=KARHU_THETA_AXIS)
+    # Construct boundary in polar coordinates
+    rhobndry, thetabndry = get_polar_from_rz(r_vals=rbndry_karhu, z_vals=zbndry_karhu, symmetric=False)
+    rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=karhu_theta_axis)
 
     x = [
         torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),

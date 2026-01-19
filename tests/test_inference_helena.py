@@ -26,8 +26,11 @@ models_directory = os.path.join(TESTDATADIR, "..", "model", "jet_2H")
 
 @pytest.mark.parametrize("heldir,modeldir", [(helena_directory, models_directory)])
 def test_inference(heldir, modeldir):
-    model, scaling_params = load_model(model_dir=modeldir)
-    model_inputs = load_from_helena(heldir)
+    model, model_config = load_model(model_dir=modeldir)
+    scaling_params = model_config["scaling_params"]
+    model_inputs = load_from_helena(heldir,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
     model_inputs = scale_model_input(model_inputs, scaling_params)
     with torch.no_grad(): 
         y_pred_norm = model(*model_inputs)
