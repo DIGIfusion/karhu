@@ -43,8 +43,7 @@ TESTDIR = os.path.dirname(__file__)
 TESTDATADIR = os.path.join(TESTDIR, "data")
 
 eqdsk_testfiles = glob.glob(os.path.join(TESTDATADIR, "eqdsk", "*"))
-models_directory = os.path.join(TESTDIR, "..", "model", "jet_2H")  # TODO: add more models
-diiid_models_directory = os.path.join(TESTDIR, "..", "model", "diii-d")  # TODO: add more models
+models_directory = os.path.join(TESTDIR, "..", "model")
 
 
 def load_eqdsk(eqfpath: str):
@@ -95,13 +94,17 @@ def test_normalisation(eqdskpath):
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath):
+    name = os.path.basename(eqdskpath).split('.eqdsk')[0]
+    corresponding_model = [fname for fname in glob.glob(os.path.join(models_directory, "*")) if name in fname]
+    if len(corresponding_model) == 0:
+        pytest.skip("No corresponding model for this test.")
+    corresponding_model = corresponding_model[0]
+    print(corresponding_model)
 
-    if "DIIID" in eqdskpath:
-        model, model_config = load_model(diiid_models_directory)
-    else:
-        model, model_config = load_model(models_directory)
+    model, model_config = load_model(corresponding_model)
     scaling_params = model_config["scaling_params"]
-    x = load_from_eqdsk(eqdskpath,
+    x = load_from_eqdsk(
+        eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
@@ -118,18 +121,20 @@ def test_inference_from_eqdsk(eqdskpath):
 def test_compare_inference_eqdsk_helena(eqdskpath):
     name = os.path.basename(eqdskpath).split('.eqdsk')[0]
     corresponding_helena = [fname for fname in glob.glob(os.path.join(TESTDATADIR, "helena", "*")) if name in fname]
+    corresponding_model = [fname for fname in glob.glob(os.path.join(models_directory, "*")) if name in fname]
     if len(corresponding_helena) == 0:
         pytest.skip("No corresponding HELENA for this EQDSK")
     corresponding_helena = corresponding_helena[0]
     print(corresponding_helena)
+    if len(corresponding_model) == 0:
+        pytest.skip("No corresponding model for this EQDSK")
+    corresponding_model = corresponding_model[0]
+    print(corresponding_model)
     """
     Inference with
     """
-    if "DIIID" in eqdskpath:
-        model, model_config = load_model(diiid_models_directory)
-    else:
-        model, model_config = load_model(models_directory)
-    
+    model, model_config = load_model(corresponding_model)
+
     x_eqdsk = load_from_eqdsk(
         eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],
