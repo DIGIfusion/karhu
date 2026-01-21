@@ -1,6 +1,4 @@
 import numpy as np
-import torch
-from karhu.utils_input import scale_model_input, descale_minmax
 
 MU_0 = 4E-7 * np.pi
 
@@ -35,23 +33,15 @@ def convert_profiles_si_to_dimensionless(pressure, rbphi, rbdry, zbdry,
     return pressure_karhu, rbphi_karhu, rbndry_karhu, zbndry_karhu
 
 
-def forward_pass(x: list[torch.tensor], model, scaling_params) -> torch.tensor:
-    x = scale_model_input(x, scaling_params)
-    with torch.no_grad():
-        y_pred = model(*x)
-    y_pred = descale_minmax(y_pred.item(), *scaling_params["growthrate"])
-    return y_pred
-
-
 def get_polar_from_rz(r_vals, z_vals, r0=0.0, z0=0.0, amin=1.0, symmetric=False):
     """
     Convert (R, Z) boundary coordinates to polar coordinates (rho, theta)
     relative to the boundary center (r0, z0).
 
-    Handles both symmetric and asymmetric boundaries:
-    - If symmetric (self.symmetric=True): input contains only the top half,
-        and the function mirrors it to produce a full 0-2pi contour.
-    - If asymmetric: uses the full input directly.
+    Note that when converting from the (R,Z) representation from HELENA's fort.12,
+    the plasma boundary is already normalized by a_min, so the default amin=1.0
+    should be used (same goes for r0, z0). However, when converting from experimental data,
+    amin, r0, z0 should be set according to the actual plasma boundary.
 
     Parameters
     ----------
@@ -59,6 +49,16 @@ def get_polar_from_rz(r_vals, z_vals, r0=0.0, z0=0.0, amin=1.0, symmetric=False)
         R (major radius) coordinates of the boundary.
     z_vals : array_like
         Z (vertical) coordinates of the boundary.
+    r0: float, optional
+        Radial offset of the boundary center. Default is 0.0.
+    z0: float, optional
+        Vertical offset of the boundary center. Default is 0.0.
+    amin : float, optional
+        Minor radius. Scaling factor applied to the normalized radius. Default is 1.0.
+    symmetric : bool, optional
+        Indicates if the boundary is symmetric about the midplane.
+        If True, only the top half is provided and will be mirrored.
+        Default is False.
 
     Returns
     -------
@@ -148,7 +148,7 @@ def get_rz_from_fourier(realfour, imagfour, r0=0.0, z0=0.0, amin=1.0):
     # Convert back to Cartesian
     rf = r0 + np.asarray(rad) * np.cos(thetafine)
     zf = z0 + np.asarray(rad) * np.sin(thetafine)
-    
+
     return rf, zf
 
 
@@ -182,10 +182,10 @@ def get_polar_from_fourier(realfour, imagfour):
 def cart2pol(x, y):
     rho = np.sqrt(x**2 + y**2)
     theta = np.arctan2(y, x)
-    return(rho, theta)
+    return (rho, theta)
 
 
 def pol2cart(rho, theta):
     x = rho * np.cos(theta)
     y = rho * np.sin(theta)
-    return(x, y)
+    return (x, y)

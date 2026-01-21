@@ -11,7 +11,7 @@ See publication refering to KARHU v1.0.0: [https://doi.org/10.1063/5.0282085](ht
 The training data is available in folder ´data´. Future datasets will be hosted on Zenodo.
 
 
-In `v1`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, RHOBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `RHOBNDRY` is the rho-coordinates (polar coordinate system) of the LCFS defined on a unifrom theta-grid from `0, 2 pi` with `128` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
+In `v2`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, RHOBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `RHOBNDRY` is the rho-coordinates (polar coordinate system) of the LCFS defined on a unifrom theta-grid from `0, 2 pi` with `128` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
 
 Additionally, `P, RBPHI` are normalised such that: 
 
