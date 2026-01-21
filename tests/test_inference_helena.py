@@ -17,12 +17,13 @@ from karhu.utils_input import (
     scale_model_output)
 from karhu.utils_helena import (
     load_from_helena, get_f12_data, read_fort20_beta_section)
-from karhu.models import load_model
+from karhu.models import load_model, load_ensemble_model
 
 TESTDATADIR = os.path.dirname(__file__)
 
 helena_directory = os.path.join(TESTDATADIR, "data", "helena_jet")
 models_directory = os.path.join(TESTDATADIR, "..", "model", "jet_2H")
+ensembles_directory = os.path.join(TESTDATADIR, "..", "model_ensemble", "jet_diii-d")
 
 @pytest.mark.parametrize("heldir,modeldir", [(helena_directory, models_directory)])
 def test_inference(heldir, modeldir):
@@ -37,3 +38,25 @@ def test_inference(heldir, modeldir):
     y_pred = scale_model_output(y_pred_norm, scaling_params)
     print(f"Predicted growth rate: {y_pred:.4f}")
     assert y_pred > 0.0
+
+@pytest.mark.parametrize("heldir,modeldir", [(helena_directory, ensembles_directory)])
+def test_inference_ensemble(heldir, modeldir):
+    models, model_config = load_ensemble_model(ensemble_dir=modeldir)
+    scaling_params = model_config["scaling_params"]
+    model_inputs = load_from_helena(heldir,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+    model_inputs = scale_model_input(model_inputs, scaling_params)
+    ensemble_preds = []
+
+    for model in models:
+        with torch.no_grad():        
+            y_pred_norm = model(*model_inputs)
+        y_pred = scale_model_output(y_pred_norm, scaling_params)
+        ensemble_preds.append(y_pred)
+    
+    ensemble_preds = np.stack(ensemble_preds, axis=0)
+    y_pred_mean = ensemble_preds.mean(axis=0)
+    y_pred_std = ensemble_preds.std(axis=0)
+    print(f"Predicted mean growth rate: {y_pred_mean:.4f} with std: {y_pred_std:.4f}")
+    assert y_pred_mean > 0.0

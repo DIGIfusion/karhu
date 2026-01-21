@@ -36,6 +36,43 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     return model, model_config
 
 
+def load_ensemble_model(ensemble_dir: str) -> tuple[list[torch.nn.Module], dict[str, np.ndarray]]:
+    """ The model directory should contain
+    - model.pt containing the weights
+    - model_config.json containing the scaling parameters and interpolation axes for the inputs and outputs
+    """
+    # Load model config
+    with open(os.path.join(ensemble_dir, "model_config.json",), "r", encoding="utf-8",) as f:
+        model_config = json.load(f)
+
+    models = []
+    
+    model_dirs = [
+        d for d in os.listdir(ensemble_dir)
+        if os.path.isdir(os.path.join(ensemble_dir, d))
+    ]
+
+    for model_dir in model_dirs:
+
+        # Load model
+        model = GMaxPredictor(
+            conv_input_sizes=[64, 64, 64, 128],
+            scalar_inputs=2,
+            conv_kernel_sizes=[7, 5, 3],
+            out_channels=16,
+            pool_kernel_size=2,
+            fc_hidden_dims=[128, 64],
+            classifier=False
+        )
+        model.load_state_dict(
+            torch.load(os.path.join(ensemble_dir, model_dir, "model.pt"), weights_only=True,)
+        )
+        model.eval()
+        models.append(model)
+
+    return models, model_config
+
+
 class GMaxPredictor(nn.Module):
     """
     GMaxPredictor model for predicting gmax from input sequences.
