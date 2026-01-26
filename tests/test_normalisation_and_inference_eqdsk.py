@@ -24,21 +24,22 @@ import sys
 import os
 import glob
 
-import f90nml
 import pytest
 import numpy as np
 from freeqdsk import geqdsk
 import torch
 
-from karhu import load_model, load_ensemble_model, get_ensemble_prediction
-from karhu.common import convert_profiles_si_to_dimensionless
-from karhu.utils_input import (
-    interpolate_profile,
+from karhu.models import (
+    load_model,
+    load_ensemble_model,
+    get_ensemble_prediction)
+from karhu import (
+    convert_profiles_si_to_dimensionless,
     scale_model_input,
     scale_model_output,
-    descale_minmax)
-from karhu.utils_helena import get_f12_data, read_fort20_beta_section, load_from_helena
-from karhu.utils_eqdsk import load_from_eqdsk
+    descale_minmax,
+    load_from_helena,
+    load_from_eqdsk)
 
 TESTDIR = os.path.dirname(__file__)
 TESTDATADIR = os.path.join(TESTDIR, "data")

@@ -6,17 +6,12 @@ from __future__ import annotations
 import os
 import pytest
 
-import f90nml
-import numpy as np
 import torch
 
-from karhu.utils_input import (
+from karhu import (
     scale_model_input,
-    interpolate_profile,
-    minmax,
-    scale_model_output)
-from karhu.utils_helena import (
-    load_from_helena, get_f12_data, read_fort20_beta_section)
+    scale_model_output,
+    load_from_helena)
 from karhu.models import (
     load_model, load_ensemble_model, get_ensemble_prediction)
 
@@ -35,7 +30,7 @@ def test_inference(heldir, modeldir):
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
     model_inputs = scale_model_input(model_inputs, scaling_params)
-    with torch.no_grad(): 
+    with torch.no_grad():
         y_pred_norm = model(*model_inputs)
     y_pred = scale_model_output(y_pred_norm, scaling_params)
     print(f"Predicted growth rate: {y_pred:.4f}")
