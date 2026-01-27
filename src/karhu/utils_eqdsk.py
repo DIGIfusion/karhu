@@ -1,11 +1,30 @@
 import numpy as np
 from freeqdsk import geqdsk
-from karhu.common import convert_profiles_si_to_dimensionless
+from karhu.common import convert_profiles_si_to_dimensionless, get_polar_from_rz
 from karhu.utils_input import interpolate_profile
 import torch
 
 
-def load_from_eqdsk(eqdskpath):
+def load_from_eqdsk(eqdskpath: str, karhu_psin_axis, karhu_theta_axis,):
+    """
+    Load an EQDSK equilibrium file and convert profiles into KARHU model inputs.
+
+    Parameters
+    ----------
+    eqdskpath : str
+        Path to the EQDSK equilibrium file.
+
+    psin_axis : sequence of float
+        List-like object defining the normalized poloidal flux grid.
+
+    theta_axis : sequence of float
+        List-like object defining the poloidal angle grid in radians.
+
+    Returns
+    -------
+    x : list of torch.Tensor
+        List of tensors formatted for KARHU model input.
+    """
     with open(eqdskpath, "r") as f:
         eqdsk = geqdsk.read(f)
     psin1d = np.linspace(0, 1.0, eqdsk.nx)
@@ -21,27 +40,21 @@ def load_from_eqdsk(eqdskpath):
                                                                                                    radius, R_mag, eps, B_mag, )
     q_karhu = eqdsk.qpsi
 
-    ninterp = 64
-    KARHU_PSIN_AXIS = np.linspace(1e-5, 1.0, ninterp) ** 0.5
-    KARHU_VX_AXIS   = np.linspace(-0.97, 0.97, ninterp)   # TODO/FIXME the interpolation axis is flawed here, since HELENA may not go to 0.999, 0.999...
-
-    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, KARHU_PSIN_AXIS)
-    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, KARHU_PSIN_AXIS)
-    q_karhu = interpolate_profile(psin1d, q_karhu, KARHU_PSIN_AXIS)
+    # Interpolate the profiles to the axes used in model
+    pressure_karhu = interpolate_profile(psin1d, pressure_karhu, karhu_psin_axis)
+    rbphi_karhu = interpolate_profile(psin1d, rbphi_karhu, karhu_psin_axis)
+    q_karhu = interpolate_profile(psin1d, q_karhu, karhu_psin_axis)
     q_karhu = abs(q_karhu)  # TODO/FIXME: Are the q-s normalised?
 
-    # FIXME: version 1.0 of the model only takes top half of the boundary
-    reduced_bndry = zbndry_karhu > 0.0
-    rbndry_top, zbndry_top = rbndry_karhu[reduced_bndry], zbndry_karhu[reduced_bndry]
-    sorted_idx = np.argsort(rbndry_top)
-    rbndry_karhu, zbndry_karhu = rbndry_top[sorted_idx], zbndry_top[sorted_idx]
-    zbndry_karhu = interpolate_profile(rbndry_karhu, zbndry_karhu, KARHU_VX_AXIS)
+    # Construct boundary in polar coordinates
+    rhobndry, thetabndry = get_polar_from_rz(r_vals=rbndry_karhu, z_vals=zbndry_karhu, symmetric=False)
+    rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=karhu_theta_axis)
 
     x = [
         torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-        torch.tensor(zbndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(rhobndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
         torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
         torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
     ]
