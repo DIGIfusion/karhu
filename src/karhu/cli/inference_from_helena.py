@@ -19,6 +19,9 @@ def main(model_dir: str, helena_dir: str):
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
+    # load to device (gpu or cpu) 
+    x = [_x.to(DEVICE) for _x in x]
+
     with torch.no_grad(): 
         y = model(*x)
     y = scale_model_output(y, scaling_params)
