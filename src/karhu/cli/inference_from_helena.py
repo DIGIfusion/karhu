@@ -2,6 +2,8 @@
 An example python script for running KARHU from a HELENA directory and writing the result to a file. 
 """
 import argparse 
+import sys 
+sys.path.append("/home/mn2596/JETPEDESTAL_ANALYSIS/karhu/src/karhu")
 from karhu.utils_helena import get_model_input
 from karhu.models import load_model
 from karhu.utils_input import scale_model_input, scale_model_output
@@ -39,7 +41,9 @@ if __name__ == "__main__":
 
     prediction = main(args.model_directory, args.helena_directory)
     print("Prediction: {:.4}".format(prediction))
-    # TODO: better output writitng? 
+    prediction = 0.0 if prediction < 0.0 else prediction 
+	    
+    print("Prediction: {:.4}".format(prediction))
     if args.write_filename is not None: 
         with open(args.write_filename, 'w') as file:
             file.write(f"{prediction}")

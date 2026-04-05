@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os 
 import math 
 
@@ -6,7 +7,7 @@ import f90nml
 from karhu.utils_input import interpolate_profile
 
 
-def read_fort20_beta_section(filename: str) -> tuple[float]:
+def read_fort20_beta_section(filename: str): # -> tuple[float]:
     """
     ***************************************
     MAGNETIC AXIS :   0.01908  0.00000
@@ -269,7 +270,7 @@ def get_eps_from_f20(filename_f20):
     return eps
 
 
-def get_model_input(heldir: str) -> list[np.ndarray]:
+def get_model_input(heldir: str): #  -> list[np.ndarray]:
     """
     Prepares the inputs to KARHU. 
     -- Reads relevant data from HELENA

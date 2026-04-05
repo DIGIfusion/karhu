@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
+def load_model(model_dir: str): #  -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     """ The model directory should contain
     - model.pt containing the weights
     - scaling_params.json containing the scaling parameters for the inputs and outputs
