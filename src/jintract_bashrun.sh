@@ -14,6 +14,7 @@ set -euox pipefail
 #module load gcc/13.2.0
 source /home/mn2596/JETPEDESTAL_ANALYSIS/karhu/.venv37/bin/activate
 INFERENCE=/home/mn2596/JETPEDESTAL_ANALYSIS/karhu/src/run.py
+INFERENCE=/home/mn2596/JETPEDESTAL_ANALYSIS/karhu/src/karhu/cli/inference_from_helena.py
 HELDIR=$1
 MODEL=/home/mn2596/JETPEDESTAL_ANALYSIS/karhu/model/jet_2H
 WRITEOUT=$2
