@@ -24,27 +24,29 @@ import sys
 import os
 import glob
 
-import f90nml
 import pytest
 import numpy as np
 from freeqdsk import geqdsk
 import torch
 
-from karhu import load_model
-from karhu.common import convert_profiles_si_to_dimensionless
-from karhu.utils_input import (
-    interpolate_profile,
+from karhu.models import (
+    load_model,
+    load_ensemble_model,
+    get_ensemble_prediction)
+from karhu import (
+    convert_profiles_si_to_dimensionless,
     scale_model_input,
-    descale_minmax)
-from karhu.utils_helena import get_f12_data, read_fort20_beta_section, load_from_helena
-from karhu.utils_eqdsk import load_from_eqdsk
+    scale_model_output,
+    descale_minmax,
+    load_from_helena,
+    load_from_eqdsk)
 
 TESTDIR = os.path.dirname(__file__)
 TESTDATADIR = os.path.join(TESTDIR, "data")
 
 eqdsk_testfiles = glob.glob(os.path.join(TESTDATADIR, "eqdsk", "*"))
-models_directory = os.path.join(TESTDIR, "..", "model", "jet_2H")  # TODO: add more models
-diiid_models_directory = os.path.join(TESTDIR, "..", "model", "diii-d")  # TODO: add more models
+models_directory = os.path.join(TESTDIR, "..", "model")
+ensembles_directory = os.path.join(TESTDIR, "..", "model_ensemble")
 
 
 def load_eqdsk(eqfpath: str):
@@ -67,6 +69,7 @@ def calculate_area(x, z):
     area = abs(area) / 2.0
     return area
 
+
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_normalisation(eqdskpath):
@@ -80,11 +83,11 @@ def test_normalisation(eqdskpath):
 
     radius = eps * R_geom / R_mag
 
-    pressure_karhu, rbphi_karhu, rbndry_karhu, zbndry_karhu = convert_profiles_si_to_dimensionless(eqdsk.pressure, eqdsk.fpol, eqdsk.rbdry, eqdsk.zbdry,
-                                                                                                   radius, R_mag, eps, B_mag, )
+    pressure_karhu, rbphi_karhu, rbndry_karhu, zbndry_karhu = convert_profiles_si_to_dimensionless(
+        eqdsk.pressure, eqdsk.fpol, eqdsk.rbdry, eqdsk.zbdry, radius, R_mag, eps, B_mag, )
     area_si         = calculate_area(eqdsk.rbdry, eqdsk.zbdry)
     area_normalised = calculate_area(rbndry_karhu, zbndry_karhu)
-   
+
     assert np.isclose(rbphi_karhu[0], 1.0)
     assert np.all(rbndry_karhu >= -1.0 - 1E-8)
     assert np.all(rbndry_karhu <= 1. + 1E-8), f"Bad vals: {rbndry_karhu[~(rbndry_karhu <= 1.0)]}"
@@ -94,12 +97,22 @@ def test_normalisation(eqdskpath):
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_inference_from_eqdsk(eqdskpath):
-    x = load_from_eqdsk(eqdskpath)
+    name = os.path.basename(eqdskpath).split('.eqdsk')[0].lower().replace("_example", "").replace("another_", "").replace("-", "")
+    corresponding_model = [
+        fname for fname in glob.glob(os.path.join(models_directory, "*"))
+        if name in fname]
 
-    if "DIIID" in eqdskpath:
-        model, scaling_params = load_model(diiid_models_directory)
-    else:
-        model, scaling_params = load_model(models_directory)
+    if len(corresponding_model) == 0:
+        pytest.skip(f"{name} No corresponding model for this test.")
+    corresponding_model = corresponding_model[0]
+    print(corresponding_model)
+
+    model, model_config = load_model(corresponding_model)
+    scaling_params = model_config["scaling_params"]
+    x = load_from_eqdsk(
+        eqdskpath,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
     with torch.no_grad():
         y_pred = model(*x)
@@ -113,24 +126,39 @@ def test_inference_from_eqdsk(eqdskpath):
 @pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
 def test_compare_inference_eqdsk_helena(eqdskpath):
     name = os.path.basename(eqdskpath).split('.eqdsk')[0]
-    corresponding_helena = [fname for fname in glob.glob(os.path.join(TESTDATADIR, "helena", "*")) if name in fname]
+    corresponding_helena = [
+        fname for fname in glob.glob(os.path.join(TESTDATADIR, "helena", "*"))
+        if name in fname]
     if len(corresponding_helena) == 0:
-        pytest.skip("No corresponding HELENA for this EQDSK")
+        pytest.skip(f"({name}) No corresponding HELENA for this EQDSK.")
     corresponding_helena = corresponding_helena[0]
-    print(corresponding_helena)
-    """
-    Inference with
-    """
-    x_eqdsk = load_from_eqdsk(eqdskpath)
-    x_helena = load_from_helena(corresponding_helena)
+    print(f"HELENA example found: {corresponding_helena}")
+
+    name = name.lower().replace("_example", "").replace("-", "")
+    corresponding_model = [
+        fname for fname in glob.glob(os.path.join(models_directory, "*"))
+        if name in fname.lower().replace("_", "").replace("-", "")]
+    if len(corresponding_model) == 0:
+        pytest.skip(f"({name})No corresponding model for this EQDSK.")
+    corresponding_model = corresponding_model[0]
+    print(f"Model found: {corresponding_model}")
+
+    model, model_config = load_model(corresponding_model)
+
+    x_eqdsk = load_from_eqdsk(
+        eqdskpath,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+    x_helena = load_from_helena(
+        corresponding_helena,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+
+    scaling_params = model_config["scaling_params"]
 
     for _x_eq, _x_he in zip(x_eqdsk, x_helena):
         assert torch.allclose(abs(_x_eq), abs(_x_he), rtol=0.25, atol=1.0)
 
-    if "DIIID" in eqdskpath:
-        model, scaling_params = load_model(diiid_models_directory)
-    else:
-        model, scaling_params = load_model(models_directory)
     predictions = []
     for x in [x_eqdsk, x_helena]:
         x = scale_model_input(x, scaling_params)
@@ -140,7 +168,72 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
         y_pred = np.max((0.0, y_pred))
         # assert y_pred >= 0.0  # TODO: have some benchmark cases?
         predictions.append(y_pred)
+
     y_pred_eqdsk, y_pred_helena = predictions
     print(f"Predicted growth rate EQDSK:  {y_pred_eqdsk:.4f}")
     print(f"Predicted growth rate HELENA: {y_pred_helena:.4f}")
     assert np.isclose(y_pred_eqdsk, y_pred_helena, rtol=0.30, atol=0.1), f"Predictions are off between EQDSK and HELENA ran EQDSK\n EQDSK : {y_pred_eqdsk:.4} \nHELENA: {y_pred_helena:.4}"
+
+
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="freeqdsk has attributes only in versions available for python 3.9 or higher")
+@pytest.mark.parametrize("eqdskpath", eqdsk_testfiles)
+def test_ensemble_compare_inference_eqdsk_helena(eqdskpath):
+    name = os.path.basename(eqdskpath).split('.eqdsk')[0]
+    corresponding_helena = [
+        fname for fname in glob.glob(os.path.join(TESTDATADIR, "helena", "*"))
+        if name in fname]
+    if len(corresponding_helena) == 0:
+        pytest.skip(f"({name}) No corresponding HELENA for this EQDSK.")
+    corresponding_helena = corresponding_helena[0]
+    print(f"HELENA example found: {corresponding_helena}")
+
+    name = name.lower().replace("_example", "").replace("-", "")
+    corresponding_model = [
+        fname for fname in glob.glob(os.path.join(ensembles_directory, "*"))
+        if name in fname.lower().replace("_", "").replace("-", "")]
+    if len(corresponding_model) == 0:
+        pytest.skip(f"({name})No corresponding model for this EQDSK.")
+    corresponding_model = corresponding_model[0]
+    print(f"Model found: {corresponding_model}")
+
+    models, model_config = load_ensemble_model(corresponding_model)
+
+    x_eqdsk = load_from_eqdsk(
+        eqdskpath,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+    x_helena = load_from_helena(
+        corresponding_helena,
+        karhu_psin_axis=model_config["karhu_psin_axis"],
+        karhu_theta_axis=model_config["karhu_theta_axis"])
+
+    scaling_params = model_config["scaling_params"]
+
+    for _x_eq, _x_he in zip(x_eqdsk, x_helena):
+        assert torch.allclose(abs(_x_eq), abs(_x_he), rtol=0.25, atol=1.0)
+
+    x = scale_model_input(x_eqdsk, scaling_params)
+    y_pred_mean_eqdsk, y_pred_std_eqdsk = get_ensemble_prediction(models, x)
+    y_pred_mean_eqdsk = scale_model_output(y_pred_mean_eqdsk, scaling_params)
+    y_pred_std_eqdsk  = scale_model_output(y_pred_std_eqdsk, scaling_params)
+
+    x = scale_model_input(x_helena, scaling_params)
+    y_pred_mean_helena, y_pred_std_helena = get_ensemble_prediction(models, x)
+    y_pred_mean_helena = scale_model_output(y_pred_mean_helena, scaling_params)
+    y_pred_std_helena  = scale_model_output(y_pred_std_helena, scaling_params)
+
+    print(
+        f"Predicted growth rate EQDSK:  {y_pred_mean_eqdsk:.4f}"
+        + f", with std: {y_pred_std_eqdsk:.4f}"
+        + f"\nPredicted growth rate HELENA: {y_pred_mean_helena:.4f}"
+        + f", with std: {y_pred_std_helena:.4f}")
+    assert np.isclose(
+        y_pred_mean_eqdsk,
+        y_pred_mean_helena,
+        rtol=0.30,
+        atol=0.1,
+    ), (
+        "Predictions are off between EQDSK and HELENA ran EQDSK\n"
+        f"EQDSK : {y_pred_mean_eqdsk:.4f}\n"
+        f"HELENA: {y_pred_mean_helena:.4f}"
+    )
