@@ -188,3 +188,21 @@ class GMaxPredictor(nn.Module):
         x = self.fc3(x)
 
         return x
+
+    def get_input_from_batch_data(self, data, device):
+        """
+        data:
+            Batch from DataLoader
+        decive:
+            cpu or gpu
+        """
+        input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels = (
+            data["p"].to(device),
+            data["qs"].to(device),
+            data["rbphi"].to(device),
+            data["shape"].to(device),
+            data["b_mag"].to(device),
+            data["r_mag"].to(device),
+            data["growthrate"].to(device),
+        )
+        return input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels
