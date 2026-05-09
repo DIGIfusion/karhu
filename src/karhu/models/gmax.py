@@ -10,8 +10,8 @@ import numpy as np
 from torch.utils.data import Dataset
 import h5py
 
-from karhu_training.train import DatasetEquilibriumGmax
-from karhu_training.utils_plotting import get_regression_scores
+from karhu.train import DatasetEquilibriumGmax
+from karhu.utils_plotting import get_regression_scores
 
 
 logger = logging.getLogger(__name__)

@@ -6,12 +6,12 @@ import logging
 # import json
 import numpy as np
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, random_split  #, ConcatDataset, DataLoader
 # import mlflow
 
-from karhu_training.addon_stopping import EarlyStopping
-from karhu_training.utils_plotting import get_regression_scores
-from torch.utils.data import random_split, ConcatDataset, DataLoader
+from karhu.training.addon_stopping import EarlyStopping
+# from karhu.training.utils_plotting import get_regression_scores
+
 
 logger = logging.getLogger(__name__)
 

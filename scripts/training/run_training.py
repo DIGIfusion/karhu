@@ -19,14 +19,14 @@ from dotenv import load_dotenv
 
 # Import model from KARHU
 # from karhu import GMaxPredictor
-from karhu_training.models import GMaxPredictor, setup_dataset
+from karhu.models import GMaxPredictor, setup_dataset
 
 # Custom libraries
-from karhu_training.logger_config import setup_logger
-from karhu_training.train import train_model, test_model
-from karhu_training.utils_input import split_dataset
-from karhu_training.utils_plotting import plot_losses, plot_pred_vs_true
-from karhu_training.utils_plotting import get_regression_scores
+from karhu.training.logger_config import setup_logger
+from karhu.training.train import train_model, test_model
+from karhu.training.utils_input import split_dataset
+from karhu.training.utils_plotting import plot_losses, plot_pred_vs_true
+from karhu.training.utils_plotting import get_regression_scores
 
 # Load environment variables from .env file
 load_dotenv(dotenv_path="/scratch/project_2009007/mishka-nn/.env")
