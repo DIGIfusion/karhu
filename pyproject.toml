@@ -17,7 +17,11 @@ authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Ada
 dev = [
   "matplotlib",
   "pytest", 
-  "freeqdsk"
+  "freeqdsk",
+  "SciencePlots==2.1.1",
+  "scikit-image",
+  "scikit-learn",
+  "scipy",
 ]
 
 # optional dependency groups (pip install .[dev])
@@ -26,6 +30,10 @@ dev = [
     "matplotlib",
     "pytest",
     "freeqdsk",
+    "SciencePlots==2.1.1",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
 ]
 
 [build-system]
