@@ -4,6 +4,8 @@ version = "2.0.0"
 requires-python = ">=3.8"
 dependencies = [
     "f90nml",
+    "h5py",
+    "json5",
     "numpy",
     "scipy",
     "torch",
@@ -20,6 +22,7 @@ dev = [
 # optional dependency groups (pip install .[dev])
 [project.optional-dependencies]
 dev = [
+    "matplotlib",
     "pytest",
     "freeqdsk",
 ]
