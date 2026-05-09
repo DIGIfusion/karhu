@@ -11,6 +11,7 @@ import mlflow
 
 from karhu_training.addon_stopping import EarlyStopping
 from karhu_training.utils_plotting import get_regression_scores
+from torch.utils.data import random_split, ConcatDataset, DataLoader
 
 logger = logging.getLogger(__name__)
 
@@ -150,6 +151,73 @@ class DatasetEquilibriumGmax(Dataset):
         ) as f:
             json.dump(self.scaling_params, f, ensure_ascii=False, indent=4)
         return
+
+
+def split_datasets(
+    datasets,
+    train_ratio=0.70,
+    val_ratio=0.20,
+    test_ratio=0.10,
+    base_seed=42,
+    ensemble_seed=0,
+):
+    train_sets = []
+    val_sets = []
+    test_sets = []
+
+    for i, (dataset, _) in enumerate(datasets):
+        train_data, val_data, test_data = split_dataset(
+            dataset,
+            train_ratio,
+            val_ratio,
+            test_ratio,
+            base_seed,
+            ensemble_seed + i
+        )
+
+        train_sets.append(train_data)
+        val_sets.append(val_data)
+        test_sets.append(test_data)
+
+    return train_sets, val_sets, test_sets
+
+
+def split_dataset(
+    dataset,
+    train_ratio=0.70,
+    val_ratio=0.20,
+    test_ratio=0.10,
+    base_seed=42,
+    ensemble_seed=None
+):
+
+    if ensemble_seed is None:
+        ensemble_seed = base_seed
+
+    n_total = len(dataset)
+    n_test = int(test_ratio * n_total)
+    n_trainval = n_total - n_test
+
+    # --- Fixed test split (dataset-specific but reproducible) ---
+    g_test = torch.Generator().manual_seed(base_seed)
+    trainval_data, test_data = random_split(
+        dataset,
+        [n_trainval, n_test],
+        generator=g_test,
+    )
+
+    # --- Train / val split (varies per ensemble member) ---
+    n_train = int(train_ratio * n_total)
+    n_val = n_trainval - n_train
+
+    g_tv = torch.Generator().manual_seed(ensemble_seed)
+    train_data, val_data = random_split(
+        trainval_data,
+        [n_train, n_val],
+        generator=g_tv,
+    )
+
+    return train_data, val_data, test_data
 
 
 def train_model(
