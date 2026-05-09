@@ -10,31 +10,28 @@ import logging
 from datetime import datetime
 import numpy as np
 import torch
-# from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader, random_split
-import mlflow
-from dotenv import load_dotenv
+# import mlflow
+# from dotenv import load_dotenv
 
 # Import model from KARHU
-# from karhu import GMaxPredictor
-from karhu_training.models import GMaxPredictor, setup_dataset
+from karhu.models import GMaxPredictor, setup_dataset
 
 # Custom libraries
-from karhu_training.logger_config import setup_logger
-from karhu_training.train import train_model, test_model
-from karhu_training.utils_input import split_dataset
-from karhu_training.utils_plotting import plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored, plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram
-from karhu_training.utils_plotting import get_regression_scores
+from karhu.logger_config import setup_logger
+from karhu.training.train import train_model, test_model, split_dataset
+from karhu.training.utils_plotting import plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored, plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram
+from karhu.training.utils_plotting import get_regression_scores
 
 
 # Load environment variables from .env file
-load_dotenv(dotenv_path="/scratch/project_2009007/mishka-nn/.env")
-os.environ["MLFLOW_TRACKING_URI"]       = os.getenv("MLFLOW_TRACKING_URI")
-os.environ["MLFLOW_TRACKING_USERNAME"]  = os.getenv("MLFLOW_TRACKING_USERNAME")
-os.environ["MLFLOW_TRACKING_PASSWORD"]  = os.getenv("MLFLOW_TRACKING_PASSWORD")
-os.environ["AWS_ACCESS_KEY_ID"]         = os.getenv("AWS_ACCESS_KEY_ID")
-os.environ["AWS_SECRET_ACCESS_KEY"]     = os.getenv("AWS_SECRET_ACCESS_KEY")
+# load_dotenv(dotenv_path="/scratch/project_2009007/mishka-nn/.env")
+# os.environ["MLFLOW_TRACKING_URI"]       = os.getenv("MLFLOW_TRACKING_URI")
+# os.environ["MLFLOW_TRACKING_USERNAME"]  = os.getenv("MLFLOW_TRACKING_USERNAME")
+# os.environ["MLFLOW_TRACKING_PASSWORD"]  = os.getenv("MLFLOW_TRACKING_PASSWORD")
+# os.environ["AWS_ACCESS_KEY_ID"]         = os.getenv("AWS_ACCESS_KEY_ID")
+# os.environ["AWS_SECRET_ACCESS_KEY"]     = os.getenv("AWS_SECRET_ACCESS_KEY")
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -243,7 +240,8 @@ def main():
             os.path.join(SAVE_DIR, "pred_vs_true_colored.png")
         )
         abs_error = np.abs(y_pred_mean - y_test)
-        plot_uncertainty_vs_error(
+        plot_uncertainty_vs_error(git status
+        
             y_pred_std,
             abs_error,
             os.path.join(SAVE_DIR, "uncertainty_vs_error.png")

@@ -14,7 +14,6 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-import mlflow
 from dotenv import load_dotenv
 
 # Import model from KARHU
@@ -23,17 +22,8 @@ from karhu.models import GMaxPredictor, setup_dataset
 
 # Custom libraries
 from karhu import setup_logger
-from karhu.training.train import train_model, test_model, split_dataset
-from karhu.training.utils_plotting import plot_losses, plot_pred_vs_true
-from karhu.training.utils_plotting import get_regression_scores
-
-# Load environment variables from .env file
-load_dotenv(dotenv_path="/scratch/project_2009007/mishka-nn/.env")
-os.environ["MLFLOW_TRACKING_URI"]       = os.getenv("MLFLOW_TRACKING_URI")
-os.environ["MLFLOW_TRACKING_USERNAME"]  = os.getenv("MLFLOW_TRACKING_USERNAME")
-os.environ["MLFLOW_TRACKING_PASSWORD"]  = os.getenv("MLFLOW_TRACKING_PASSWORD")
-os.environ["AWS_ACCESS_KEY_ID"]         = os.getenv("AWS_ACCESS_KEY_ID")
-os.environ["AWS_SECRET_ACCESS_KEY"]     = os.getenv("AWS_SECRET_ACCESS_KEY")
+from karhu.training import train_model, test_model, split_dataset
+from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -107,52 +97,34 @@ def main():
     val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
 
-    # ======================== #
+
     # Train model
+    train_losses, val_losses = train_model(
+        model, optimizer, model.loss_fn, train_loader, val_loader, epochs=epochs,
+        early_stopping=False, early_stopping_min_delta=0.00001, early_stopping_patience=20
+    )
+
+    # Save model and scaling params
+    torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
+    dataset.save_scaling_params(SAVE_DIR)
+    logger.info("Saved to: %s", SAVE_DIR)
+
+    # Plot losses and save fig
+    plot_losses(train_losses, val_losses, filename=os.path.join(SAVE_DIR, "training.png"))
+
     # ======================== #
-    # Set up ML FLOW and train
-    if True:
-    # mlflow.set_experiment(args.model_name)
-    # with mlflow.start_run():
-    #     mlflow.log_params(args.__dict__)
+    # Test data set
+    # ======================== #
+    logger.info("Evaluating TEST SET...")
 
-        # Train model
-        train_losses, val_losses = train_model(
-            model, optimizer, model.loss_fn, train_loader, val_loader, epochs=epochs,
-            early_stopping=False, early_stopping_min_delta=0.00001, early_stopping_patience=20
-        )
+    y_test, y_pred = test_model(model, test_loader, dataset=dataset, device=DEVICE)
 
-        # Save model and scaling params
-        torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
-        dataset.save_scaling_params(SAVE_DIR)
-        logger.info("Saved to: %s", SAVE_DIR)
+    plot_pred_vs_true(y_test, y_pred, filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
+    metrics = get_regression_scores(y_test, y_pred)
+    for k, v in metrics.items():
+        logger.info(f"{k}: {v:.5f}")
 
-        # Plot losses and save fig
-        plot_losses(train_losses, val_losses, filename=os.path.join(SAVE_DIR, "training.png"))
-
-        # ======================== #
-        # Test data set
-        # ======================== #
-        logger.info("Evaluating TEST SET...")
-
-        y_test, y_pred = test_model(model, test_loader, dataset=dataset, device=DEVICE)
-
-        plot_pred_vs_true(y_test, y_pred, filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
-        metrics = get_regression_scores(y_test, y_pred)
-        for k, v in metrics.items():
-            logger.info(f"{k}: {v:.5f}")
-
-        # try:
-        #     mlflow.log_param("SAVE_DIR", SAVE_DIR)
-        #     for k, v in metrics.items():
-        #         mlflow.log_metric(k, v)
-
-        #     # TODO: Save model to MlFlow
-        #     # print(f"Model saved to mlflow: {SAVE_NAME}")
-        # except Exception as exc:
-        #     logger.error(f"MlFlow exception: {exc}")
-
-        logger.info("Total runtime: %s", datetime.now() - start_time)
+    logger.info("Total runtime: %s", datetime.now() - start_time)
 
 
 def get_args_description(args):
