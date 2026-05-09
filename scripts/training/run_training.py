@@ -22,9 +22,8 @@ from dotenv import load_dotenv
 from karhu.models import GMaxPredictor, setup_dataset
 
 # Custom libraries
-from karhu.training.logger_config import setup_logger
-from karhu.training.train import train_model, test_model
-from karhu.training.utils_input import split_dataset
+from karhu import setup_logger
+from karhu.training.train import train_model, test_model, split_dataset
 from karhu.training.utils_plotting import plot_losses, plot_pred_vs_true
 from karhu.training.utils_plotting import get_regression_scores
 
