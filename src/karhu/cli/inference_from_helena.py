@@ -2,9 +2,9 @@
 An example python script for running KARHU from a HELENA directory and writing the result to a file. 
 """
 import argparse 
-from karhu.utils_helena import load_from_helena
+from karhu import load_from_helena
 from karhu.models import load_model
-from karhu.utils_input import scale_model_input, scale_model_output
+from karhu import scale_model_input, scale_model_output
 
 import torch
 
