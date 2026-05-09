@@ -6,12 +6,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-
-from torch.utils.data import Dataset
+# from torch.utils.data import Dataset
 import h5py
 
-from karhu.train import DatasetEquilibriumGmax
-from karhu.utils_plotting import get_regression_scores
+from karhu.training.train import DatasetEquilibriumGmax
+# from karhu.training.utils_plotting import get_regression_scores
 
 
 logger = logging.getLogger(__name__)
