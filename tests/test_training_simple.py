@@ -7,8 +7,8 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 # Custom libraries
-from karhu.models import GMaxPredictor
-from karhu.training import train_model, test_model, split_dataset, setup_dataset
+from karhu.models import GMaxPredictor, setup_dataset
+from karhu.training import train_model, test_model, split_dataset
 from karhu.training import get_regression_scores
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
