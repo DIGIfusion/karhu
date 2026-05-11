@@ -5,9 +5,7 @@ KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD
 - See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
 - See publication refering to KARHU v1.0.0: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
 - Full documentation: [https://digifusion.github.io/karhu/](https://digifusion.github.io/karhu/)
-- Dataset Zenodo: TBA
-
-The training data is available in folder ´data´. Future datasets will be hosted on Zenodo.
+- Dataset Zenodo: https://zenodo.org/uploads/18629219
 
 
 In `v2`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, RHOBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `RHOBNDRY` is the rho-coordinates (polar coordinate system) of the LCFS defined on a unifrom theta-grid from `0, 2 pi` with `128` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
