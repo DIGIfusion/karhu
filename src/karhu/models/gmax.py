@@ -6,6 +6,13 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+# from torch.utils.data import Dataset
+import h5py
+
+from karhu.training.train import DatasetEquilibriumGmax
+# from karhu.training.utils_plotting import get_regression_scores
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -206,3 +213,88 @@ class GMaxPredictor(nn.Module):
             data["growthrate"].to(device),
         )
         return input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels
+
+
+def setup_dataset(dir_path: str):
+    """Creates a DatasetEquilibriumGmax with the files from the given path.
+    Detects and removes samples containing NaNs before scaling.
+    """
+    h5_path_interp = dir_path
+    with h5py.File(h5_path_interp, "r") as f:
+        qs = f["profiles/qs"][:]
+        p0 = f["profiles/p0"][:]
+        rbphi = f["profiles/rbphi"][:]
+        boundary = f["profiles/boundary_polar"][:]
+        gamma = f["scalars/max_gr_mishka"][:]
+        rmag = f["scalars/rmag"][:]
+        bmag = f["scalars/bmag"][:]
+        karhu_psin_axis = f["karhu/psin_axis"][:]
+        karhu_theta_axis = f["karhu/theta_axis"][:]
+
+    # --- Build tensors ---
+    features = {
+        "p": torch.tensor(np.expand_dims(p0.astype(np.float32), axis=1)),
+        "qs": torch.tensor(np.expand_dims(qs.astype(np.float32), axis=1)),
+        "rbphi": torch.tensor(np.expand_dims(rbphi.astype(np.float32), axis=1)),
+        "shape": torch.tensor(np.expand_dims(boundary.astype(np.float32)[:, 0, :], axis=1)),
+        "growthrate": torch.tensor(np.expand_dims(gamma.astype(np.float32), axis=1)),
+        "r_mag": torch.tensor(np.expand_dims(rmag.astype(np.float32), axis=1)),
+        "b_mag": torch.tensor(np.expand_dims(bmag.astype(np.float32), axis=1)),
+    }
+
+    # --- Detect NaNs per feature ---
+    n_samples = next(iter(features.values())).shape[0]
+    valid_mask = torch.ones(n_samples, dtype=torch.bool)
+
+    for name, data in features.items():
+        # Collapse all non-batch dimensions
+        nan_mask = torch.isnan(data).view(n_samples, -1).any(dim=1)
+
+        if nan_mask.any():
+            bad_indices = torch.where(nan_mask)[0].tolist()
+            print(f"[NaN detected] Feature '{name}' has NaNs at indices: {bad_indices[:10]} "
+                  f"{'...' if len(bad_indices) > 10 else ''}")
+
+        valid_mask &= ~nan_mask
+
+    n_removed = (~valid_mask).sum().item()
+    if n_removed > 0:
+        print(f"[Dataset cleanup] Removing {n_removed} / {n_samples} samples due to NaNs")
+
+    # --- Filter all features consistently ---
+    features = {
+        name: data[valid_mask]
+        for name, data in features.items()
+    }
+
+    # --- Safe scaling params (no NaNs now) ---
+    # scaling_params = {
+    #     name: (torch.min(data).item(), torch.max(data).item())
+    #     for name, data in features.items()
+    # }
+    scaling_params = {
+        name: (torch.min(data).item(), torch.max(data).item())
+        for name, data in features.items()
+    }
+
+    data_config = {
+        "scaling_params": scaling_params,
+        "karhu_psin_axis": karhu_psin_axis.tolist(),
+        "karhu_theta_axis": karhu_theta_axis.tolist(),
+        "n_removed_nan_samples": n_removed,
+    }
+
+    dataset = DatasetEquilibriumGmax(features)
+    dataset.set_scaling_params(scaling_params)
+    dataset.scale_data()
+    dataset.set_zeros_to_negative()
+
+    return dataset, data_config
+
+def setup_multiple_datasets(data_paths: list):
+    datasets = []
+    for data_path in data_paths:
+        dataset, data_config = setup_dataset(data_path)
+        datasets.append((dataset, data_config))
+    return datasets
+
