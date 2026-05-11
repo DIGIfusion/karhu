@@ -1,8 +1,3 @@
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, TensorDataset
-from torch.utils.data import Dataset
 
 import time
 import os
@@ -13,17 +8,18 @@ from datetime import datetime
 import numpy as np
 import math
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import DataLoader, TensorDataset
+from torch.utils.data import Dataset
+
 import ray
-print(ray.__version__)
 from ray import tune, air
 from ray.tune.search.optuna import OptunaSearch
-print(tune.__file__)
 from ray.air import RunConfig
 
-
-from karhu_training.models import GMaxPredictor, setup_dataset
-# from karhu_training.train import train_model, test_model
-# from karhu_training.utils_plotting import plot_losses
+from karhu.models import GMaxPredictor, setup_dataset
 from torch.utils.data import random_split
 
 # import sys

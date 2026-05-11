@@ -16,17 +16,11 @@ from torch.utils.data import DataLoader, random_split
 # import mlflow
 from dotenv import load_dotenv
 
-# Import model from KARHU
-# from karhu import GMaxPredictor
-from karhu_training.models import GMaxPredictor, setup_dataset
 
-# Custom libraries
-from karhu_training.logger_config import setup_logger
-from karhu_training.train import train_model, test_model
-# from karhu_training.utils_input import split_dataset
-from karhu_training.utils_plotting import plot_losses
-#, plot_pred_vs_true, plot_pred_vs_true_colored, plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram
-from karhu_training.utils_plotting import get_regression_scores
+from karhu import setup_logger
+from karhu.models import GMaxPredictor, setup_dataset
+from karhu.training import train_model, test_model
+from karhu.training import plot_losses,get_regression_scores
 
 
 # Load environment variables from .env file

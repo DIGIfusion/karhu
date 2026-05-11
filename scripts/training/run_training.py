@@ -16,12 +16,8 @@ from torch.utils.data import DataLoader
 
 from dotenv import load_dotenv
 
-# Import model from KARHU
-# from karhu import GMaxPredictor
-from karhu.models import GMaxPredictor, setup_dataset
-
-# Custom libraries
 from karhu import setup_logger
+from karhu.models import GMaxPredictor, setup_dataset
 from karhu.training import train_model, test_model, split_dataset
 from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
 
@@ -29,7 +25,7 @@ from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
 SAVE_NAME   = f"model_{datetime.now():%Y%m%d_%H%M%S}"
-SAVE_DIR    = os.path.join(SCRIPT_DIR, "../models", SAVE_NAME)
+SAVE_DIR    = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
 
 
 def main():
@@ -103,6 +99,9 @@ def main():
         model, optimizer, model.loss_fn, train_loader, val_loader, epochs=epochs,
         early_stopping=False, early_stopping_min_delta=0.00001, early_stopping_patience=20
     )
+    with open(os.path.join(SAVE_DIR, "losses.npy"), 'wb') as f:
+        np.save(f, train_losses)
+        np.save(f, val_losses)
 
     # Save model and scaling params
     torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))

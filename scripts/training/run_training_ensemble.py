@@ -12,14 +12,13 @@ import numpy as np
 import torch
 from torch import optim
 from torch.utils.data import DataLoader, random_split
+import matplotlib.pyplot as plt
 # import mlflow
 # from dotenv import load_dotenv
 
-# Import model from KARHU
-from karhu.models import GMaxPredictor, setup_dataset
-
 # Custom libraries
 from karhu.logger_config import setup_logger
+from karhu.models import GMaxPredictor, setup_dataset
 from karhu.training.train import train_model, test_model, split_dataset
 from karhu.training.utils_plotting import plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored, plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram
 from karhu.training.utils_plotting import get_regression_scores
@@ -171,6 +170,9 @@ def main():
                 os.makedirs(member_dir, exist_ok=True)
 
                 torch.save(model.state_dict(), os.path.join(member_dir, "model.pt"))
+                with open(os.path.join(member_dir, "losses.npy"), 'wb') as f:
+                    np.save(f, train_losses)
+                    np.save(f, val_losses)
                 plot_losses(
                     train_losses,
                     val_losses,
@@ -255,7 +257,21 @@ def main():
             y_pred_std,
             os.path.join(SAVE_DIR, "uncertainty_hist.png")
         )
-
+        fig, axs = plt.subplots(2, 1, figsize=(10,10))
+        for ens_id in range(args.ensemble_size):
+            member_dir = os.path.join(SAVE_DIR, f"ensemble_{ens_id}")
+            with open(os.path.join(member_dir, "losses.npy"), 'rb') as f:
+                train_losses = np.load(f)
+                val_losses = np.load(f)
+                axs[0].plot(train_losses, label=f"{ens_id}")
+                axs[1].plot(val_losses, label=f"{ens_id}")
+        axs[0].legend()
+        axs[1].legend()
+        axs[0].grid(True)
+        axs[1].grid(True)
+        plt.tight_layout()
+        fig.savefig(os.path.join(SAVE_DIR, "ensemble_losses.png"))
+                
         logger.info("Total runtime: %s", datetime.now() - start_time)
 
 
