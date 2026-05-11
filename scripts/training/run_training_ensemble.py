@@ -240,8 +240,7 @@ def main():
             os.path.join(SAVE_DIR, "pred_vs_true_colored.png")
         )
         abs_error = np.abs(y_pred_mean - y_test)
-        plot_uncertainty_vs_error(git status
-        
+        plot_uncertainty_vs_error(        
             y_pred_std,
             abs_error,
             os.path.join(SAVE_DIR, "uncertainty_vs_error.png")
