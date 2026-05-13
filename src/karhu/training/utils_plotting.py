@@ -228,14 +228,26 @@ def print_prediction_scores(y_true, y_pred):
     return mse, mae, mape, r2
 
 
-def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None):
+def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None, gridsize=60):
     """
-    Plot predicted vs true values with optional uncertainty.
+    Plot predicted vs true values using a density (hexbin) plot.
+
+    This visualization is designed for large datasets where scatter plots
+    suffer from overplotting. The density of samples is shown using a 2D
+    hexagonal histogram with logarithmic color scaling.
+
     Args:
-        y_test (array-like): True values.
+        y_test (array-like): True target values.
         y_pred (array-like): Predicted mean values.
-        y_pred_std (array-like, optional): Predictive std (ensemble uncertainty).
-        filename (str): Filename to save the plot.
+        y_pred_std (array-like, optional): Predictive standard deviation.
+            If provided, the mean uncertainty is shown in the title and a
+            faint scatter of predictions is added on top of the density.
+        filename (str, optional): Path to save the figure.
+        gridsize (int, optional): Number of hexagons in the x-direction.
+            Higher values give finer resolution.
+
+    Returns:
+        matplotlib.figure.Figure: The created figure.
     """
     y_test = np.asarray(y_test).squeeze()
     y_pred = np.asarray(y_pred).squeeze()
@@ -244,44 +256,48 @@ def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None):
         y_pred_std = np.asarray(y_pred_std).squeeze()
 
     metrics = get_regression_scores(y_true=y_test, y_pred=y_pred)
-
-    fig, ax = plt.subplots(1, 1, figsize=(5, 4))
-
     mae, r2 = metrics["mae"], metrics["r2"]
 
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # --- Density plot ---
+    hb = ax.hexbin(
+        y_test,
+        y_pred,
+        gridsize=gridsize,
+        bins="log",          # log density
+        cmap="viridis",
+        mincnt=1
+    )
+
+    cbar = fig.colorbar(hb, ax=ax)
+    cbar.set_label("log10(N samples per bin)")
+
+    # Optional faint scatter to show spread / outliers
     if y_pred_std is not None:
+        ax.scatter(y_test, y_pred, s=5, alpha=0.05, color="black")
         mean_std = np.mean(y_pred_std)
-        ax.errorbar(
-            y_test,
-            y_pred,
-            yerr=y_pred_std,
-            fmt=".",
-            markersize=4,
-            alpha=0.4,
-            ecolor="gray",
-            color="black",
-            label="Prediction ±1σ"
-        )
-        title = f"r2: {r2:.5f}, mae: {mae:.5f}, ⟨σ⟩: {mean_std:.5f}"
+        title = f"R² = {r2:.5f}   MAE = {mae:.5f}   ⟨σ⟩ = {mean_std:.5f}"
     else:
-        ax.plot(y_test, y_pred, ".", markersize=4, color="black", alpha=0.5)
-        title = f"r2: {r2:.5f}, mae: {mae:.5f}"
+        title = f"R² = {r2:.5f}   MAE = {mae:.5f}"
 
-    ax.set_title(title)
+    # Ideal line
+    min_val = min(np.min(y_test), np.min(y_pred))
     max_val = max(np.max(y_test), np.max(y_pred))
-    ax.plot([0, max_val], [0, max_val], "r", label="Ideal")
+    ax.plot([min_val, max_val], [min_val, max_val], "r--", lw=2, label="Ideal")
 
-    ax.set_xlabel(r"true $\gamma_{\text{max}}$")
-    ax.set_ylabel(r"predicted $\gamma_{\text{max}}$")
-    ax.grid(True)
-
-    if y_pred_std is not None:
-        ax.legend()
+    # Formatting
+    ax.set_title(title)
+    ax.set_xlabel(r"True")
+    ax.set_ylabel(r"Predicted")
+    ax.set_aspect("equal", adjustable="box")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
 
     plt.tight_layout()
 
     if filename:
-        fig.savefig(filename)
+        fig.savefig(filename, dpi=300)
         print(f"Figure saved: {filename}")
 
     return fig
