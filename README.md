@@ -5,8 +5,9 @@ KARHU is a machine learning surrogate model for the ideal peeling-ballooning MHD
 - See example notebook: [run_inference.ipynb](example/run_inference.ipynb)
 - See publication refering to KARHU v1.0.0: [https://doi.org/10.1063/5.0282085](https://doi.org/10.1063/5.0282085)
 - Full documentation: [https://digifusion.github.io/karhu/](https://digifusion.github.io/karhu/)
-- Dataset Zenodo: https://zenodo.org/uploads/18629219
+- Dataset Zenodo: [https://zenodo.org/records/18384362](https://zenodo.org/records/18384362)
 
+The training data is available in folder ´data´. 
 
 In `v2`, `KARHU` takes as **ordered** inputs, i.e., `forward(P, Q, RBPHI, RHOBNDRY, BMAG, RMAG)`, where `P, Q, RBPHI` are the pressure, q (safety factor) and poloidal current functions of $\psi$ defined on a uniform $\psi_N^2$ grid of `64` points. `RHOBNDRY` is the rho-coordinates (polar coordinate system) of the LCFS defined on a unifrom theta-grid from `0, 2 pi` with `128` points. Finally, `BMAG, RMAG` are the values of the toroidal field and major radius at the magnetic axis. 
 
@@ -41,6 +42,11 @@ The output of `KARHU`, once denormalised for ML purposes, is the growht rate $\g
 Easiest with the package manager [uv](https://docs.astral.sh/uv/getting-started/installation/), however, `uv` does not support python versions $\leq 3.8$. We use `uv` since it will manage dependencies in `pyproject.toml` for given python version, e.g., for `python==3.9` it finds `torch==2.8.0` and `numpy==2.0.2` while for `python==3.8` it finds `torch==2.4.1` and `numpy==1.24.4`. 
 
 ### With `uv`
+
+## Acknowledgements
+The development of this model has been support by multiple funding sources:
+- Research Council of Finland project numbers: 355460, 358941.
+- EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 1010522200 - EUROfusion).
 
 
 0. `git clone git@github.com:DIGIfusion/karhu.git karhu && cd karhu`
