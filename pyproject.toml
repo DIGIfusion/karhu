@@ -1,9 +1,11 @@
 [project]
 name = "karhu"
-version = "2.0.0"
+version = "2.1.0"
 requires-python = ">=3.8"
 dependencies = [
     "f90nml",
+    "h5py",
+    "json5",
     "numpy",
     "scipy",
     "torch",
@@ -13,15 +15,25 @@ authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Ada
 
 [dependency-groups]
 dev = [
+  "matplotlib",
   "pytest", 
-  "freeqdsk"
+  "freeqdsk",
+  "SciencePlots==2.1.1",
+  "scikit-image",
+  "scikit-learn",
+  "scipy",
 ]
 
 # optional dependency groups (pip install .[dev])
 [project.optional-dependencies]
 dev = [
+    "matplotlib",
     "pytest",
     "freeqdsk",
+    "SciencePlots==2.1.1",
+    "scikit-image",
+    "scikit-learn",
+    "scipy",
 ]
 
 [build-system]
