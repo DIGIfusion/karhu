@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 from dotenv import load_dotenv
 
 from karhu import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset
+from karhu.models import GMaxPredictor, setup_dataset, setup_dataset_from_samples
 from karhu.training import train_model, test_model, split_dataset
 from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
 
@@ -74,7 +74,8 @@ def main():
     # ======================== #
 
     # Load dataset(s)
-    dataset, data_config = setup_dataset(dir_path=args.dataset_dir)
+    # dataset, data_config = setup_dataset(dir_path=args.dataset_dir)
+    dataset, data_config = setup_dataset_from_samples(dir_path=args.dataset_dir)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -144,5 +145,5 @@ def save_config(save_dir, config):
 
 if __name__ == "__main__":
     os.makedirs(SAVE_DIR, exist_ok=False)
-    setup_logger(os.path.join(SAVE_DIR, "training.log"))
+    setup_logger(os.path.join(SAVE_DIR, "training.log"), "DEBUG")
     main()

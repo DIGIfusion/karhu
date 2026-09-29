@@ -48,6 +48,7 @@ def get_regression_scores(y_true, y_pred):
     r2 = r2_score(y_true, y_pred)
     return {"mse": mse, "mae": mae, "mape": mape, "r2": r2}
 
+
 def get_classification_scores(y_true, y_pred_proba, threshold=0.5):
     """
     Calculate classification metrics for a binary 0/1 model.
