@@ -90,7 +90,7 @@ def main():
     n_train = int(train_ratio * n_trainval)
     n_val = n_trainval - n_train
 
-    print(
+    logger.info(
         f"Total data samples: {n_total}\n"
         + f"Test set: {n_test} ({test_ratio*100}% of full data set)\n"
         + f"Training set: {n_train} ({train_ratio*100}% of training+validation set)\n"
