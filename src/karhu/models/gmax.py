@@ -226,31 +226,73 @@ class GMaxPredictor(nn.Module):
         return input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels
 
 
-def setup_dataset(dir_path: str):
+def setup_dataset(dir_paths: list):
     """Creates a DatasetEquilibriumGmax with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
-    h5_path_interp = dir_path
-    with h5py.File(h5_path_interp, "r") as f:
-        qs = f["profiles/qs"][:]
-        p0 = f["profiles/p0"][:]
-        rbphi = f["profiles/rbphi"][:]
-        boundary = f["profiles/boundary_polar"][:]
-        gamma = f["scalars/max_gr_mishka"][:]
-        rmag = f["scalars/rmag"][:]
-        bmag = f["scalars/bmag"][:]
-        karhu_psin_axis = f["karhu/psin_axis"][:]
-        karhu_theta_axis = f["karhu/theta_axis"][:]
+    logger.debug(f"Number of datasets: {len(dir_paths)}")
+    # Map output names to HDF5 dataset paths
+    dataset_paths = {
+        "qs": "profiles/qs",
+        "p0": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "boundary": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        "rmag": "scalars/rmag",
+        "bmag": "scalars/bmag",
+        "beta_n": "scalars/betan",
+    }
+    data = {key: [] for key in dataset_paths}
+
+    for dir_path in dir_paths:
+        h5_paths = sorted(
+            os.path.join(dir_path, filename)
+            for filename in os.listdir(dir_path)
+            if filename.endswith((".h5", ".hdf5"))
+            and os.path.isfile(os.path.join(dir_path, filename))
+        )
+        logger.debug("Found %d HDF5 files in %s", len(h5_paths), dir_path)
+        for h5_path in h5_paths:
+            try:
+                with h5py.File(h5_path, "r") as f:
+                    for key, dataset_path in dataset_paths.items():
+                        data[key].append(f[dataset_path][:])
+                    # Special case. Needs to be the same throughout the datasets.
+                    karhu_psin_axis = f["karhu/psin_axis"][:]
+                    karhu_theta_axis = f["karhu/theta_axis"][:]
+
+            except (OSError, KeyError, ValueError) as e:
+                logger.warning("Skipping %s: %s", h5_path, e)
+    # Concatenate along the sample dimension
+    data = {
+        key: np.concatenate(arrays, axis=0)
+        for key, arrays in data.items()
+        if arrays
+    }
+    # Preserve your existing variable names
+    qs = data["qs"]
+    p0 = data["p0"]
+    rbphi = data["rbphi"]
+    boundary = data["boundary"]
+    gamma = data["gamma"]
+    rmag = data["rmag"]
+    bmag = data["bmag"]
+    # beta_n = data["beta_n"]
+
+    # Testing: cap gamma
+    # gamma = np.minimum(0.15, gamma)
+    # gamma = np.log1p(gamma/0.001)
 
     # --- Build tensors ---
     features = {
         "p": torch.tensor(np.expand_dims(p0.astype(np.float32), axis=1)),
         "qs": torch.tensor(np.expand_dims(qs.astype(np.float32), axis=1)),
         "rbphi": torch.tensor(np.expand_dims(rbphi.astype(np.float32), axis=1)),
-        "shape": torch.tensor(np.expand_dims(boundary.astype(np.float32)[:, 0, :], axis=1)),
+        "shape": torch.tensor(np.expand_dims(boundary.astype(np.float32), axis=1)),
         "growthrate": torch.tensor(np.expand_dims(gamma.astype(np.float32), axis=1)),
         "r_mag": torch.tensor(np.expand_dims(rmag.astype(np.float32), axis=1)),
         "b_mag": torch.tensor(np.expand_dims(bmag.astype(np.float32), axis=1)),
+        # "beta_n": torch.tensor(np.expand_dims(beta_n.astype(np.float32), axis=1)),
     }
 
     # --- Detect NaNs per feature ---
@@ -263,14 +305,14 @@ def setup_dataset(dir_path: str):
 
         if nan_mask.any():
             bad_indices = torch.where(nan_mask)[0].tolist()
-            logger.info(f"[NaN detected] Feature '{name}' has NaNs at indices: {bad_indices[:10]} "
+            print(f"[NaN detected] Feature '{name}' has NaNs at indices: {bad_indices[:10]} "
                   f"{'...' if len(bad_indices) > 10 else ''}")
 
         valid_mask &= ~nan_mask
 
     n_removed = (~valid_mask).sum().item()
     if n_removed > 0:
-        logger.info(f"[Dataset cleanup] Removing {n_removed} / {n_samples} samples due to NaNs")
+        print(f"[Dataset cleanup] Removing {n_removed} / {n_samples} samples due to NaNs")
 
     # --- Filter all features consistently ---
     features = {
@@ -279,10 +321,6 @@ def setup_dataset(dir_path: str):
     }
 
     # --- Safe scaling params (no NaNs now) ---
-    # scaling_params = {
-    #     name: (torch.min(data).item(), torch.max(data).item())
-    #     for name, data in features.items()
-    # }
     scaling_params = {
         name: (torch.min(data).item(), torch.max(data).item())
         for name, data in features.items()
@@ -298,7 +336,6 @@ def setup_dataset(dir_path: str):
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
     dataset.scale_data()
-    dataset.set_zeros_to_negative()
 
     return dataset, data_config
 
@@ -311,8 +348,8 @@ def setup_multiple_datasets(data_paths: list):
     return datasets
 
 
-def setup_dataset_from_samples(dir_path: str):
-    """Creates a DatasetEquilibriumGmax from all .h5 files in a directory.
+def setup_dataset_from_samples(dir_paths: list[str]):
+    """Creates a DatasetEquilibriumGmax from all .h5 files in the given directories.
 
     Each .h5 file is expected to contain one sample under the
     ``equilibrium/profiles`` group.
@@ -320,7 +357,12 @@ def setup_dataset_from_samples(dir_path: str):
     Detects and removes samples containing NaNs before scaling.
     """
     logger.info("Setting up dataset from samples...")
-    h5_files = sorted(Path(dir_path).glob("*.h5"))
+
+    h5_files = sorted(
+        h5_file
+        for dir_path in dir_paths
+        for h5_file in Path(dir_path).glob("*.h5")
+    )
 
     if not h5_files:
         raise FileNotFoundError(f"No .h5 files found in directory: {dir_path}")
@@ -339,46 +381,49 @@ def setup_dataset_from_samples(dir_path: str):
     karhu_theta_axis = np.linspace(1e-5, 2*np.pi, n_profile_points*2)
 
     for h5_path in h5_files:
-        with h5py.File(h5_path, "r") as f:
-            profiles = f["equilibrium/profiles"]
+        try:
+            with h5py.File(h5_path, "r") as f:
+                profiles = f["equilibrium/profiles"]
 
-            qs = profiles["QS"][:]
-            p0 = profiles["P0"][:]
-            rbphi = profiles["RBPHI"][:]
-            cs = profiles["CS"][:]
-            vx = profiles["VX"][:]
-            vy = profiles["VY"][:]
+                qs = profiles["QS"][:]
+                p0 = profiles["P0"][:]
+                rbphi = profiles["RBPHI"][:]
+                cs = profiles["CS"][:]
+                vx = profiles["VX"][:]
+                vy = profiles["VY"][:]
 
-            # Interpolate to KARHU grid
-            rho_0, theta_0 = get_polar_from_rz(vx, vy, symmetric=True)
-            rho_1 = interpolate_psi_profile(theta_0, rho_0, karhu_theta_axis)
+                # Interpolate to KARHU grid
+                rho_0, theta_0 = get_polar_from_rz(vx, vy, symmetric=True)
+                rho_1 = interpolate_psi_profile(theta_0, rho_0, karhu_theta_axis)
+                qs_interp = interpolate_psi_profile(cs, qs, karhu_psin_axis)
+                p0_interp = interpolate_psi_profile(cs, p0, karhu_psin_axis)
+                rbphi_interp = interpolate_psi_profile(cs, rbphi, karhu_psin_axis)
 
-            qs_interp = interpolate_psi_profile(cs, qs, karhu_psin_axis)
-            p0_interp = interpolate_psi_profile(cs, p0, karhu_psin_axis)
-            rbphi_interp = interpolate_psi_profile(cs, rbphi, karhu_psin_axis)
+                # Get max gamma
+                sample_growthrates = [0.0]
+                for ntor in list(f['mishka'].keys()):
+                    sample_growthrates.append(
+                        f['mishka'][ntor]['output']['ew'][()])
 
-            boundary_list.append(rho_1)
-            qs_list.append(qs_interp)
-            p0_list.append(p0_interp)
-            rbphi_list.append(rbphi_interp)
+                # Calculate rmag and bmag
+                rvac = f["equilibrium/input/phys/rvac"][()]
+                bvac = f["equilibrium/input/phys/bvac"][()]
+                epsilon = f["equilibrium/input/phys/eps"][()]
+                radius = f["equilibrium/profiles/RADIUS"][()]
+                b0 = f["equilibrium/scalars/b0"][()]
+                rmag = (epsilon / radius) * rvac
+                bmag = bvac / b0
 
-            # Get max gamma
-            sample_growthrates = [0.0]
-            for ntor in list(f['mishka'].keys()):
-                sample_growthrates.append(
-                    f['mishka'][ntor]['output']['ew'][()])
-            gamma_list.append(np.max(sample_growthrates)**(0.5))
-
-            # Calculate rmag and bmag
-            rvac = f["equilibrium/input/phys/rvac"][()]
-            bvac = f["equilibrium/input/phys/bvac"][()]
-            epsilon = f["equilibrium/input/phys/eps"][()]
-            radius = f["equilibrium/profiles/RADIUS"][()]
-            b0 = f["equilibrium/scalars/b0"][()]
-            rmag = (epsilon / radius) * rvac
-            bmag = bvac / b0
-            rmag_list.append(rmag)
-            bmag_list.append(bmag)
+                # Append to lists
+                boundary_list.append(rho_1)
+                qs_list.append(qs_interp)
+                p0_list.append(p0_interp)
+                rbphi_list.append(rbphi_interp)
+                gamma_list.append(np.max(sample_growthrates)**(0.5))
+                rmag_list.append(rmag)
+                bmag_list.append(bmag)
+        except Exception as e:
+            logger.warning(f"{h5_path}: {e}. Skipping this file.")
 
     # --- Combine all samples ---
     qs = np.array(qs_list)
@@ -389,7 +434,8 @@ def setup_dataset_from_samples(dir_path: str):
     rmag = np.array(rmag_list)
     bmag = np.array(bmag_list)
 
-    logger.debug(f"Dataset: {qs.shape, p0.shape, rbphi.shape, boundary.shape, gamma.shape, rmag.shape, bmag.shape}")
+    logger.debug(
+        f"Dataset: {qs.shape, p0.shape, rbphi.shape, boundary.shape, gamma.shape, rmag.shape, bmag.shape}")
 
     # --- Build tensors ---
     features = {
