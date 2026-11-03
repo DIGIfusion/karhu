@@ -42,7 +42,14 @@ def main():
     parser = argparse.ArgumentParser(description="Train a CNN model")
     parser.add_argument("-e", "--epochs", type=int, help="Number of epochs for training")
     parser.add_argument("-m", "--model", type=str, help="ML model")
-    parser.add_argument("--dataset_dir", type=str, required=True, help="Path to the training dataset directory",)
+    # parser.add_argument("--dataset_dir", type=str, required=True, help="Path to the training dataset directory",)
+    parser.add_argument(
+        "--db_dirs",
+        type=str,
+        nargs="+",
+        required=True,
+        help="Paths to the database directories",
+    )
 
     # Optional arguments for second dataset mix
     parser.add_argument("--seed", type=int, default=42, help="Random seed.",)
@@ -74,8 +81,9 @@ def main():
     # ======================== #
 
     # Load dataset(s)
-    # dataset, data_config = setup_dataset(dir_path=args.dataset_dir)
-    dataset, data_config = setup_dataset_from_samples(dir_path=args.dataset_dir)
+    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
+    # dataset, data_config = setup_dataset_from_samples(
+    #     dir_paths=args.dataset_dirs)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -94,32 +102,40 @@ def main():
     val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=True)
     test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
 
-
     # Train model
     train_losses, val_losses = train_model(
-        model, optimizer, model.loss_fn, train_loader, val_loader, epochs=epochs,
-        early_stopping=False, early_stopping_min_delta=0.00001, early_stopping_patience=20
+        model, optimizer, model.loss_fn, train_loader, val_loader,
+        epochs=epochs,
+        early_stopping=False,
+        early_stopping_min_delta=0.00001,
+        early_stopping_patience=20
     )
     with open(os.path.join(SAVE_DIR, "losses.npy"), 'wb') as f:
         np.save(f, train_losses)
         np.save(f, val_losses)
 
     # Save model and scaling params
-    torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
+    torch.save(
+        model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
     dataset.save_scaling_params(SAVE_DIR)
     logger.info("Saved to: %s", SAVE_DIR)
 
     # Plot losses and save fig
-    plot_losses(train_losses, val_losses, filename=os.path.join(SAVE_DIR, "training.png"))
+    plot_losses(
+        train_losses, val_losses,
+        filename=os.path.join(SAVE_DIR, "training.png"))
 
     # ======================== #
     # Test data set
     # ======================== #
     logger.info("Evaluating TEST SET...")
 
-    y_test, y_pred = test_model(model, test_loader, dataset=dataset, device=DEVICE)
+    y_test, y_pred = test_model(
+        model, test_loader, dataset=dataset, device=DEVICE)
 
-    plot_pred_vs_true(y_test, y_pred, filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
+    plot_pred_vs_true(
+        y_test, y_pred,
+        filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
     metrics = get_regression_scores(y_test, y_pred)
     for k, v in metrics.items():
         logger.info(f"{k}: {v:.5f}")
@@ -135,6 +151,7 @@ def get_args_description(args):
         desc.append(f"  {key}: {value}")
     desc.append("=======================")
     return "\n".join(desc)
+
 
 def save_config(save_dir, config):
     with open(
