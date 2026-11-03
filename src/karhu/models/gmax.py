@@ -7,18 +7,17 @@ import torch.nn.functional as F
 import numpy as np
 from pathlib import Path
 from scipy.interpolate import interp1d
-
-# from torch.utils.data import Dataset
 import h5py
 
 from karhu.training.train import DatasetEquilibriumGmax
-# from karhu.training.utils_plotting import get_regression_scores
 
 
 logger = logging.getLogger(__name__)
 
 
-def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
+def load_model(
+    model_dir: str
+) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     """ The model directory should contain
     - model.pt containing the weights
     - model_config.json containing the scaling parameters and interpolation
@@ -41,7 +40,9 @@ def load_model(model_dir: str) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
     return model, model_config
 
 
-def load_ensemble_model(ensemble_dir: str) -> tuple[list[torch.nn.Module], dict[str, np.ndarray]]:
+def load_ensemble_model(
+    ensemble_dir: str,
+) -> tuple[list[torch.nn.Module], dict[str, np.ndarray]]:
     """ The model directory should contain
     - model.pt containing the weights
     - model_config.json containing the scaling parameters and interpolation
@@ -97,8 +98,9 @@ def get_ensemble_prediction(models: list, model_inputs):
 class GMaxPredictor(nn.Module):
     """
     GMaxPredictor model for predicting gmax from input sequences.
-    The model consists of several convolutional layers followed by fully connected layers.
-    The input consists of 4 sequences and 2 additional features (b_mag and r_mag).
+    The model consists of several convolutional layers followed by
+    fully connected layers. The input consists of 4 sequences and
+    2 additional features (b_mag and r_mag).
     """
 
     def __init__(self, model_config: dict,):
@@ -111,7 +113,8 @@ class GMaxPredictor(nn.Module):
         self.pool_kernel_size = model_config["pool_kernel_size"]
         self.fc_hidden_dims = model_config["fc_hidden_dims"]
         self.pool_kernel_size = model_config["pool_kernel_size"]
-        self.pool = nn.MaxPool1d(kernel_size=self.pool_kernel_size, stride=2, padding=0)
+        self.pool = nn.MaxPool1d(
+            kernel_size=self.pool_kernel_size, stride=2, padding=0)
 
         # --- Dropout layers ---
         self.conv_dropout = nn.Dropout1d(p=model_config["conv_dropout"])
@@ -165,18 +168,21 @@ class GMaxPredictor(nn.Module):
             self.flatten_dims.append(self.out_channels * conv_output)
 
         self.total_flatten_dim = sum(self.flatten_dims)
-        
+
         # Fully connected layers
-        self.fc1 = nn.Linear(self.total_flatten_dim + self.scalar_inputs, self.fc_hidden_dims[0])
+        self.fc1 = nn.Linear(
+            self.total_flatten_dim
+            + self.scalar_inputs, self.fc_hidden_dims[0])
         self.fc2 = nn.Linear(self.fc_hidden_dims[0], self.fc_hidden_dims[1])
         self.fc3 = nn.Linear(self.fc_hidden_dims[1], 1)
 
         self.loss_fn = nn.MSELoss()
 
-    def forward(self, input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag):
+    def forward(
+            self, input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag):
         inputs = [input_p, input_qs, input_rbphi, input_shape]
         features = []
-        scalars = torch.stack([b_mag, r_mag], dim=1) 
+        scalars = torch.stack([b_mag, r_mag], dim=1)
 
         for i in range(4):
             x = F.leaky_relu(self.input_convs[i](inputs[i]))
@@ -223,7 +229,10 @@ class GMaxPredictor(nn.Module):
             data["r_mag"].to(device),
             data["growthrate"].to(device),
         )
-        return input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels
+        return (
+            input_p, input_qs, input_rbphi, input_shape,
+            b_mag, r_mag, labels
+        )
 
 
 def setup_dataset(dir_paths: list):
@@ -257,7 +266,8 @@ def setup_dataset(dir_paths: list):
                 with h5py.File(h5_path, "r") as f:
                     for key, dataset_path in dataset_paths.items():
                         data[key].append(f[dataset_path][:])
-                    # Special case. Needs to be the same throughout the datasets.
+                    # Special case.
+                    # Needs to be the same throughout the datasets.
                     karhu_psin_axis = f["karhu/psin_axis"][:]
                     karhu_theta_axis = f["karhu/theta_axis"][:]
 
@@ -305,14 +315,18 @@ def setup_dataset(dir_paths: list):
 
         if nan_mask.any():
             bad_indices = torch.where(nan_mask)[0].tolist()
-            print(f"[NaN detected] Feature '{name}' has NaNs at indices: {bad_indices[:10]} "
-                  f"{'...' if len(bad_indices) > 10 else ''}")
+            logger.warning(
+                f"[NaN detected] Feature '{name}' has NaNs at "
+                + f"indices: {bad_indices[:10]} "
+                + f"{'...' if len(bad_indices) > 10 else ''}")
 
         valid_mask &= ~nan_mask
 
     n_removed = (~valid_mask).sum().item()
     if n_removed > 0:
-        print(f"[Dataset cleanup] Removing {n_removed} / {n_samples} samples due to NaNs")
+        logger.warning(
+            f"[Dataset cleanup] Removing {n_removed} / {n_samples} "
+            + "samples due to NaNs")
 
     # --- Filter all features consistently ---
     features = {
@@ -335,21 +349,15 @@ def setup_dataset(dir_paths: list):
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
+    dataset.transform_labels()
     dataset.scale_data()
 
     return dataset, data_config
 
 
-def setup_multiple_datasets(data_paths: list):
-    datasets = []
-    for data_path in data_paths:
-        dataset, data_config = setup_dataset(data_path)
-        datasets.append((dataset, data_config))
-    return datasets
-
-
 def setup_dataset_from_samples(dir_paths: list[str]):
-    """Creates a DatasetEquilibriumGmax from all .h5 files in the given directories.
+    """Creates a DatasetEquilibriumGmax from all .h5 files in
+    the given directories.
 
     Each .h5 file is expected to contain one sample under the
     ``equilibrium/profiles`` group.
@@ -365,7 +373,8 @@ def setup_dataset_from_samples(dir_paths: list[str]):
     )
 
     if not h5_files:
-        raise FileNotFoundError(f"No .h5 files found in directories: {dir_paths}")
+        raise FileNotFoundError(
+            f"No .h5 files found in directories: {dir_paths}")
 
     # --- Collect samples from all H5 files ---
     qs_list = []
@@ -377,7 +386,8 @@ def setup_dataset_from_samples(dir_paths: list[str]):
     bmag_list = []
 
     n_profile_points = 64
-    karhu_psin_axis = np.linspace(1e-5, 1, n_profile_points) ** (1 / 4)  # S=sqrt(psi)
+    # Profiles initially given in S=sqrt(psi)
+    karhu_psin_axis = np.linspace(1e-5, 1, n_profile_points) ** (1 / 4)
     karhu_theta_axis = np.linspace(1e-5, 2*np.pi, n_profile_points*2)
 
     for h5_path in h5_files:
@@ -394,10 +404,12 @@ def setup_dataset_from_samples(dir_paths: list[str]):
 
                 # Interpolate to KARHU grid
                 rho_0, theta_0 = get_polar_from_rz(vx, vy, symmetric=True)
-                rho_1 = interpolate_psi_profile(theta_0, rho_0, karhu_theta_axis)
+                rho_1 = interpolate_psi_profile(
+                    theta_0, rho_0, karhu_theta_axis)
                 qs_interp = interpolate_psi_profile(cs, qs, karhu_psin_axis)
                 p0_interp = interpolate_psi_profile(cs, p0, karhu_psin_axis)
-                rbphi_interp = interpolate_psi_profile(cs, rbphi, karhu_psin_axis)
+                rbphi_interp = interpolate_psi_profile(
+                    cs, rbphi, karhu_psin_axis)
 
                 # Get max gamma
                 sample_growthrates = [0.0]
@@ -435,7 +447,8 @@ def setup_dataset_from_samples(dir_paths: list[str]):
     bmag = np.array(bmag_list)
 
     logger.debug(
-        f"Dataset: {qs.shape, p0.shape, rbphi.shape, boundary.shape, gamma.shape, rmag.shape, bmag.shape}")
+        f"Dataset shapes: {qs.shape, p0.shape, rbphi.shape, boundary.shape}, "
+        f"{gamma.shape, rmag.shape, bmag.shape}")
 
     # --- Build tensors ---
     features = {
@@ -549,7 +562,8 @@ def get_polar_from_rz(r_vals, z_vals, symmetric=False):
         z_mirror = 2 * z0 - z_vals[::-1]
 
         # Combine top (input) and mirrored bottom
-        r_vals = np.concatenate([r_vals, r_mirror[1:]])  # avoid duplicate at midplane
+        # To avoid duplicate at midplane
+        r_vals = np.concatenate([r_vals, r_mirror[1:]])
         z_vals = np.concatenate([z_vals, z_mirror[1:]])
 
     # Compute normalized radius and poloidal angle

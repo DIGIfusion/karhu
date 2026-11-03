@@ -22,12 +22,13 @@ class DatasetEquilibriumGmax(Dataset):
     def __init__(self, features):
         """Initialize the dataset with features.
         Args:
-            features (dict): Dictionary of features where keys are feature names and values
-            are numpy arrays.
+            features (dict): Dictionary of features where keys are feature
+                names and values are numpy arrays.
         """
         self.features = features
         self.scaling_params = {}
         self.scaled = False
+        self.transformed = False
 
     def set_scaling_params(self, scaling_params):
         """
@@ -39,8 +40,8 @@ class DatasetEquilibriumGmax(Dataset):
     def set_scaling_params_from_data(self):
         """
         Set the scaling parameters for each feature based on the data.
-        This method calculates the min and max values for each feature and stores
-        them in the scalers dictionary.
+        This method calculates the min and max values for each feature
+        and stores them in the scalers dictionary.
         """
         logger.info("Setting scaling params from data...")
         if self.scaled:
@@ -54,10 +55,11 @@ class DatasetEquilibriumGmax(Dataset):
 
     def set_scaling_params_from_dataset(self, other):
         """Set the scaling parameters from another dataset.
-        This method copies the scaling parameters from another dataset instance.
+        This method copies the scaling parameters from another dataset
+        instance.
         Args:
-            other (DatasetEquilibriumGmax): Another dataset instance from which to
-            copy scaling parameters.
+            other (DatasetEquilibriumGmax): Another dataset instance
+            from which to copy scaling parameters.
         """
         logger.info("Setting scaling params from another dataset...")
         self.scaling_params = other.scalers.copy()
@@ -66,8 +68,8 @@ class DatasetEquilibriumGmax(Dataset):
     def get_scaling_params(self):
         """Get the scaling parameters for each feature.
         Returns:
-            dict: Dictionary of scaling parameters where keys are feature names and values
-            are tuples of (min, max).
+            dict: Dictionary of scaling parameters where keys are feature
+            names and values are tuples of (min, max).
         """
         scaling_params = {}
         for name, scaler in self.scaling_params.items():
@@ -101,6 +103,22 @@ class DatasetEquilibriumGmax(Dataset):
     def set_zeros_to_negative(self, negative_value: float = -1.0):
         """Set all zeros in the labels of the dataset to a negative value"""
         self.features["growthrate"][self.features["growthrate"] == 0.0] = negative_value
+
+    def _transform(self, y, c=0.01):
+        return np.log1p(y/c)
+
+    def _detransform(self, y, c=0.01):
+        return np.expm1(y)*c
+
+    def transform_labels(self):
+        if self.transformed:
+            self.features["growthrate"] = self._detransform(
+                self.features["growthrate"])
+            self.transformed = False
+        else:
+            self.features["growthrate"] = self._transform(
+                self.features["growthrate"])
+            self.transformed = True
 
     def minmax(self, data, scaler_min, scaler_max):
         """Perform min-max scaling on the data.
@@ -147,7 +165,9 @@ class DatasetEquilibriumGmax(Dataset):
             save_path (str): Path to save the JSON file.
         """
         with open(
-            os.path.join(save_path, "scaling_params.json"), "w", encoding="utf-8"
+            os.path.join(save_path, "scaling_params.json"),
+            mode="w",
+            encoding="utf-8"
         ) as f:
             json.dump(self.scaling_params, f, ensure_ascii=False, indent=4)
         return
@@ -291,7 +311,7 @@ def train_model(
                 (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
                     model.get_input_from_batch_data(data, device))
                 optimizer.zero_grad()
-                outputs =  model(input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+                outputs = model(input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * labels.size(0)
         val_loss = running_loss / len(val_loader.dataset)
@@ -324,11 +344,15 @@ def test_model(model, test_loader, dataset, device: str = "cpu",):
         (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
             model.get_input_from_batch_data(data, device)
         )
-        y_pred = model(input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+        y_pred = model(
+            input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
 
         y_test = labels
-        y_test = torch.clamp(y_test, min=0.0)
-        y_pred = torch.clamp(y_pred, min=0.0)
+
+        y_test = y_test.detach().numpy()
+        y_pred = y_pred.detach().numpy()
+        y_test = np.maximum(0.0, y_test)
+        y_pred = np.maximum(0.0, y_pred)
 
         y_pred = dataset.descale_minmax(
             y_pred,
@@ -340,8 +364,12 @@ def test_model(model, test_loader, dataset, device: str = "cpu",):
             dataset.scaling_params["growthrate"][0],
             dataset.scaling_params["growthrate"][1],
         )
+        
+        if dataset.transformed:
+            y_pred = dataset._detransform(y_pred)
+            y_test = dataset._detransform(y_test)
 
-    return y_test.detach().numpy(), y_pred.detach().numpy()
+    return y_test, y_pred
 
 
 def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
