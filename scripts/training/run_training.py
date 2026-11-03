@@ -14,18 +14,18 @@ import torch
 from torch import optim
 from torch.utils.data import DataLoader
 
-from dotenv import load_dotenv
-
 from karhu import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset, setup_dataset_from_samples
-from karhu.training import train_model, test_model, split_dataset
-from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
+from karhu.models import (
+    GMaxPredictor, setup_dataset, setup_dataset_from_samples)
+from karhu.training import (
+    train_model, test_model, split_dataset,
+    plot_losses, plot_pred_vs_true, get_regression_scores)
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-SAVE_NAME   = f"model_{datetime.now():%Y%m%d_%H%M%S}"
-SAVE_DIR    = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVE_NAME = f"model_{datetime.now():%Y%m%d_%H%M%S}"
+SAVE_DIR = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
 
 
 def main():
