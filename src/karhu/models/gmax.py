@@ -365,7 +365,7 @@ def setup_dataset_from_samples(dir_paths: list[str]):
     )
 
     if not h5_files:
-        raise FileNotFoundError(f"No .h5 files found in directory: {dir_path}")
+        raise FileNotFoundError(f"No .h5 files found in directories: {dir_paths}")
 
     # --- Collect samples from all H5 files ---
     qs_list = []
