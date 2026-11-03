@@ -13,27 +13,16 @@ import torch
 # from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader, random_split
-# import mlflow
-from dotenv import load_dotenv
-
 
 from karhu import setup_logger
 from karhu.models import GMaxPredictor, setup_dataset
 from karhu.training import train_model, test_model
-from karhu.training import plot_losses,get_regression_scores
+from karhu.training import plot_losses, get_regression_scores
 
-
-# Load environment variables from .env file
-load_dotenv(dotenv_path="/scratch/project_2009007/mishka-nn/.env")
-os.environ["MLFLOW_TRACKING_URI"]       = os.getenv("MLFLOW_TRACKING_URI")
-os.environ["MLFLOW_TRACKING_USERNAME"]  = os.getenv("MLFLOW_TRACKING_USERNAME")
-os.environ["MLFLOW_TRACKING_PASSWORD"]  = os.getenv("MLFLOW_TRACKING_PASSWORD")
-os.environ["AWS_ACCESS_KEY_ID"]         = os.getenv("AWS_ACCESS_KEY_ID")
-os.environ["AWS_SECRET_ACCESS_KEY"]     = os.getenv("AWS_SECRET_ACCESS_KEY")
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 # SAVE_NAME   = f"model_{datetime.now():%Y%m%d_%H%M%S}"
 # SAVE_DIR    = os.path.join(SCRIPT_DIR, "../models", SAVE_NAME)
 
@@ -45,7 +34,7 @@ def main():
     # Create argument parser
     parser = argparse.ArgumentParser(description="Train a CNN model")
     parser.add_argument("-e", "--epochs", type=int, help="Number of epochs for training", required=True)
-    parser.add_argument("--dataset_dir", type=str, required=True, help="Path to the training dataset directory",)
+    parser.add_argument("--db_dirs", type=str, nargs="+", required=True, help="Paths to the database directories",)
 
     # Optional arguments for second dataset mix
     parser.add_argument("--seed", type=int, default=42, help="Random seed.",)
@@ -57,9 +46,9 @@ def main():
     parser.add_argument("--model_name", type=str, default="KARHU-ensemble", help="Name of the model to MLFLOW.",)
     parser.add_argument("--ensemble_id", type=int, required=True)
     parser.add_argument("--training_split", type=float, default=0.7, help="Fraction of the data used in training vs validation.")
-    
+
     args = parser.parse_args()
-    
+
     slurm_id = os.environ.get("SLURM_JOB_ID", "noslurm")
     SAVE_NAME = f"model_{slurm_id}_ens{args.ensemble_id}"
     SAVE_DIR = os.path.join(SCRIPT_DIR, "../models", SAVE_NAME)
@@ -74,9 +63,6 @@ def main():
     logger.info("NumPy Version: %s", np.__version__)
     logger.info(get_args_description(args))
 
-    
-    epochs = args.epochs
-
     # Setup model configuration
     model_config = {
         "conv_input_sizes": (64, 64, 64, 128),
@@ -90,7 +76,7 @@ def main():
     }
 
     # Load data
-    dataset, data_config = setup_dataset(dir_path=args.dataset_dir)
+    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -102,109 +88,96 @@ def main():
     n_test = int(test_ratio * n_total)
     n_trainval = n_total - n_test
     n_train = int(train_ratio * n_trainval)
-    n_val   = n_trainval - n_train
+    n_val = n_trainval - n_train
 
     logger.info(
         f"Total data samples: {n_total}, "
         f"test: {n_test}, train: {n_train}, val: {n_val}"
     )
 
-
     g_test = torch.Generator().manual_seed(args.seed)
 
-    trainval_data, test_data = random_split(dataset, [n_trainval, n_test], generator=g_test)
+    trainval_data, test_data = random_split(
+        dataset, [n_trainval, n_test], generator=g_test)
 
     ens_id = args.ensemble_id
     ens_seed = args.seed + ens_id
-    
-    if True:
-    # mlflow.set_experiment(args.model_name)
-    # with mlflow.start_run(run_name=f"ensemble_{ens_id}"):
-    #     mlflow.log_params({
-    #         **args.__dict__,
-    #         "ensemble_id": ens_id,
-    #         "seed": ens_seed
-    #     })
-        logger.info(f"==== Training ensemble member {ens_id} ====")
 
-        # Different seed per ensemble member
-        torch.manual_seed(ens_seed)
-        np.random.seed(ens_seed)
+    logger.info(f"==== Training ensemble member {ens_id} ====")
 
-        # Create model
-        model = GMaxPredictor(model_config).to(DEVICE)
-        optimizer = optim.Adam(
-            model.parameters(),
-            lr=args.lr,
-            betas=(args.beta1, args.beta2),
-            weight_decay=args.weight_decay
-        )
+    # Different seed per ensemble member
+    torch.manual_seed(ens_seed)
+    np.random.seed(ens_seed)
 
-        # --- Train / val split (varies per ensemble member) ---
-        g_tv = torch.Generator().manual_seed(ens_seed)
-        train_data, val_data = random_split(
-            trainval_data,
-            [n_train, n_val],
-            generator=g_tv
-        )
+    # Create model
+    model = GMaxPredictor(model_config).to(DEVICE)
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=args.lr,
+        betas=(args.beta1, args.beta2),
+        weight_decay=args.weight_decay
+    )
 
-        train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
-        val_loader   = DataLoader(val_data, batch_size=args.batch_size, shuffle=False)
+    # --- Train / val split (varies per ensemble member) ---
+    g_tv = torch.Generator().manual_seed(ens_seed)
+    train_data, val_data = random_split(
+        trainval_data,
+        [n_train, n_val],
+        generator=g_tv
+    )
 
-        # ======================== #
-        # Train model
-        # ======================== #
+    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False)
 
-        train_losses, val_losses = train_model(
-            model,
-            optimizer,
-            model.loss_fn,
-            train_loader,
-            val_loader,
-            epochs=epochs,
-            early_stopping=True,
-            early_stopping_min_delta=1e-5,
-            early_stopping_patience=70
-        )
+    # ======================== #
+    # Train model
+    # ======================== #
 
-        # Save member
-        torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
-        plot_losses(
-            train_losses,
-            val_losses,
-            filename=os.path.join(SAVE_DIR, "training.png")
-        )
+    train_losses, val_losses = train_model(
+        model,
+        optimizer,
+        model.loss_fn,
+        train_loader,
+        val_loader,
+        epochs=args.epochs,
+        early_stopping=True,
+        early_stopping_min_delta=1e-5,
+        early_stopping_patience=70
+    )
 
-        # ======================== #
-        # Test set evaluation
-        # ======================== #
-        test_loader = DataLoader(
-            test_data,
-            batch_size=len(test_data),
-            shuffle=False
-        )
+    # Save member
+    torch.save(model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
+    plot_losses(
+        train_losses,
+        val_losses,
+        filename=os.path.join(SAVE_DIR, "training.png")
+    )
 
-        y_test, y_pred = test_model(
-            model,
-            test_loader,
-            dataset=dataset,
-            device=DEVICE
-        )
-        np.save(os.path.join(SAVE_DIR, "y_test.npy"), y_test)
-        np.save(os.path.join(SAVE_DIR, "y_pred.npy"), y_pred)
+    # ======================== #
+    # Test set evaluation
+    # ======================== #
+    test_loader = DataLoader(
+        test_data,
+        batch_size=len(test_data),
+        shuffle=False
+    )
 
-        metrics = get_regression_scores(y_test, y_pred)
-        # mlflow.log_metric("final_train_loss", train_losses[-1])
-        # mlflow.log_metric("final_val_loss", val_losses[-1])
+    y_test, y_pred = test_model(
+        model,
+        test_loader,
+        dataset=dataset,
+        device=DEVICE
+    )
+    np.save(os.path.join(SAVE_DIR, "y_test.npy"), y_test)
+    np.save(os.path.join(SAVE_DIR, "y_pred.npy"), y_pred)
 
-        # for k, v in metrics.items():
-        #     mlflow.log_metric(f"{k}_member", v)
+    metrics = get_regression_scores(y_test, y_pred)
 
-        logger.info(
-            f"Member {ens_id} metrics: "
-            + ", ".join(f"{k}={v:.4f}" for k, v in metrics.items())
-        )
-        logger.info("Total runtime: %s", datetime.now() - start_time)
+    logger.info(
+        f"Member {ens_id} metrics: "
+        + ", ".join(f"{k}={v:.4f}" for k, v in metrics.items())
+    )
+    logger.info("Total runtime: %s", datetime.now() - start_time)
 
 
 def get_args_description(args):

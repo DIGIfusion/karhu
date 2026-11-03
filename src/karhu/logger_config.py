@@ -16,3 +16,4 @@ def setup_logger(log_file="training.log", level=logging.INFO):
             logging.StreamHandler(),  # Optional: also logs to console
         ],
     )
+    logging.getLogger("matplotlib").setLevel(logging.WARNING)

@@ -1,54 +1,16 @@
-
-import time
 import os
-import sys
-import pathlib
-import json
-from datetime import datetime
-import numpy as np
-import math
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.utils.data import DataLoader, TensorDataset
-from torch.utils.data import Dataset
-
-import ray
-from ray import tune, air
+from torch.utils.data import DataLoader
+from ray import tune
 from ray.tune.search.optuna import OptunaSearch
 from ray.air import RunConfig
 
 from karhu.models import GMaxPredictor, setup_dataset
 from torch.utils.data import random_split
 
-# import sys
-# sys.path.append("/scratch/project_2009007/mishka-nn/regressor_gmax")
-# from lib.models import CNN_gmax
-
 
 # ---------------------------
-# 1️⃣  Dummy Data & Model
-# ---------------------------
-# def load_data(save_dir):
-#     dataset = setup_dataset(
-#         dir_path = "",
-#     )
-    
-#     dataset.save_scaling_params(save_dir)
-
-#     dataset_test = setup_dataset(
-#         dir_path = "/scratch/project_2009007/data_JET_2H/db/84541/profiles_64",
-#         other_dataset=dataset)
-
-#     train_loader = DataLoader(dataset, batch_size=4, shuffle=True)
-#     test_loader = DataLoader(dataset_test, batch_size=len(dataset_test), shuffle=False)
-    
-#     return train_loader, test_loader
-
-
-# ---------------------------
-# 2️⃣  Training / Testing Loops
+# Training / Testing Loops
 # ---------------------------
 def train_epoch(model, optimizer, train_loader):
     model.train()
@@ -64,16 +26,13 @@ def train_epoch(model, optimizer, train_loader):
         outputs = model(input_p, input_qs, input_rbphi, input_shape, scalars)
         # print(outputs, labels)
 
-        # loss = nn.MSELoss()(outputs, labels)
         loss = criterion(outputs, labels)
-        # print(loss)
         loss.backward()
         optimizer.step()
         running_loss += loss.item() * labels.size(0)
-        # print(running_loss)
     train_loss = running_loss / len(train_loader.dataset)
     # print(train_loss)
-    
+
 
 def test(model, test_loader):
     model.eval()
@@ -82,28 +41,26 @@ def test(model, test_loader):
     with torch.no_grad():
         for data in test_loader:
             # Move inputs and labels to the device
-            (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
+            (input_p, input_qs, input_rbphi,
+             input_shape, b_mag, r_mag, labels) = (
                 model.get_input_from_batch_data(data, "cpu"))
             scalars = torch.stack([b_mag, r_mag], dim=1)
-            outputs =  model(input_p, input_qs, input_rbphi, input_shape, scalars)
-            
-            # loss = nn.MSELoss()(outputs, labels)
+            outputs = model(
+                input_p, input_qs, input_rbphi, input_shape, scalars)
+
             loss = criterion(outputs, labels)
             running_loss += loss.item() * labels.size(0)
 
-            # preds = model(x).argmax(dim=1)
-            # correct += (preds == y).sum().item()
-            # total += y.size(0)
     return running_loss / len(test_loader.dataset)
 
 
 # ---------------------------
-# 3️⃣  Objective for Ray Tune
+# Objective for Ray Tune
 # ---------------------------
 def objective(config):
     DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     save_dir = os.path.join(
-        "/scratch/project_2009007/ambrunc/dev_karhu/karhu-training/testmodels_all",
+        "../../..//karhu-training/models_raytune",
         '_'.join([f"{key}{value:.5f}" for key, value in config.items()])
     )
     os.makedirs(save_dir)
@@ -119,8 +76,11 @@ def objective(config):
     }
     model = GMaxPredictor(model_config)
     dataset, _ = setup_dataset(
-        dir_path="/scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db/all/interpolated64.h5")
-    
+        dir_paths=[
+            "../../../karhu-training/db/all/interpolated64.h5",
+            ]
+        )
+
     n_total = len(dataset)
     n_test = int(0.2 * n_total)
     n_train = int(n_total - n_test)
@@ -147,9 +107,8 @@ def objective(config):
     return
 
 
-
 # ---------------------------
-# 4️⃣  Define Search Space & Run Tuning
+# Define Search Space & Run Tuning
 # ---------------------------
 search_space = {
     "lr": tune.loguniform(1e-4, 1e-2),
