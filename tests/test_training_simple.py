@@ -1,6 +1,8 @@
-"""
-Train a model.
-"""
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
 
 import torch
 from torch import optim
@@ -45,9 +47,12 @@ def test_training_simple():
     train_data, val_data, test_data = split_dataset(
         dataset, train_ratio, val_ratio, test_ratio, base_seed=seed)
 
-    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=True)
-    test_loader = DataLoader(test_data, batch_size=len(test_data), shuffle=False)
+    train_loader = DataLoader(
+        train_data, batch_size=batch_size, shuffle=True)
+    val_loader = DataLoader(
+        val_data, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(
+        test_data, batch_size=len(test_data), shuffle=False)
 
     # Train model
     train_losses, val_losses = train_model(
@@ -65,3 +70,62 @@ def test_training_simple():
     assert metrics["mse"] > 0
     assert metrics["mae"] > 0
     assert metrics["r2"] > 0
+
+
+# Path to the scripts folder
+TEST_DIR = Path(__file__).parent
+SCRIPTS_DIR = (
+    TEST_DIR.parent
+    / "scripts"
+    / "training"
+)
+DATA_DIR = TEST_DIR / "data" / "db"
+
+
+@pytest.mark.parametrize(
+    "script, arguments",
+    [
+        (
+            "run_training.py",
+            [
+                "-e", "1",
+                "-m", "CNN",
+                "--db_dirs", str(DATA_DIR),
+            ],
+        ),
+        (
+            "run_training_ensemble.py",
+            [
+                "-e", "1",
+                "-m", "CNN",
+                "--db_dirs", str(DATA_DIR),
+                "--ensemble_size", "10",
+            ],
+        ),
+        (
+            "run_training_ensemble_parallel.py",
+            [
+                "-e", "1",
+                "-m", "CNN",
+                "--db_dirs", str(DATA_DIR),
+                "--ensemble_id", "0",
+            ],
+        ),
+    ],
+)
+def test_scripts_run(script, arguments):
+    """Check that scripts execute successfully."""
+    script_path = SCRIPTS_DIR / script
+
+    result = subprocess.run(
+        [sys.executable, str(script_path), *arguments],
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+
+    assert result.returncode == 0, (
+        f"Script {script} failed.\n"
+        f"STDOUT:\n{result.stdout}\n"
+        f"STDERR:\n{result.stderr}"
+    )

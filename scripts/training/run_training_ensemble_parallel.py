@@ -34,6 +34,8 @@ def main():
     # Create argument parser
     parser = argparse.ArgumentParser(description="Train a CNN model")
     parser.add_argument("-e", "--epochs", type=int, help="Number of epochs for training", required=True)
+    parser.add_argument("-m", "--model", type=str, help="ML model")
+    parser.add_argument("--ensemble_id", type=int, required=True)
     parser.add_argument("--db_dirs", type=str, nargs="+", required=True, help="Paths to the database directories",)
 
     # Optional arguments for second dataset mix
@@ -44,7 +46,6 @@ def main():
     parser.add_argument("--weight_decay", type=float, default=0.0, help="weight_decay.",)
     parser.add_argument("--batch_size", type=int, default=256, help="Size of batch (training and validation sets).",)
     parser.add_argument("--model_name", type=str, default="KARHU-ensemble", help="Name of the model to MLFLOW.",)
-    parser.add_argument("--ensemble_id", type=int, required=True)
     parser.add_argument("--training_split", type=float, default=0.7, help="Fraction of the data used in training vs validation.")
 
     args = parser.parse_args()
@@ -126,8 +127,10 @@ def main():
         generator=g_tv
     )
 
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=True)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False)
+    train_loader = DataLoader(
+        train_data, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(
+        val_data, batch_size=args.batch_size, shuffle=False)
 
     # ======================== #
     # Train model

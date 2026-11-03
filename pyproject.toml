@@ -9,6 +9,7 @@ dependencies = [
     "numpy",
     "scipy",
     "torch",
+    "dotenv",
 ]
 
 authors = [ {name="Amanda Bruncona", email="amanda.bruncona@vtt.fi"}, {name="Adam Kit", email="adam.kit@vtt.fi"}]
