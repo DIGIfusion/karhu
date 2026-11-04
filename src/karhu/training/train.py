@@ -369,8 +369,8 @@ def test_model(model, test_loader, dataset, device: str = "cpu",):
         )
         
         if dataset.transformed:
-            y_pred = dataset._detransform(y_pred)
-            y_test = dataset._detransform(y_test)
+            y_pred = dataset._detransform(y_pred, c=dataset.c)
+            y_test = dataset._detransform(y_test, c=dataset.c)
 
     return y_test, y_pred
 
