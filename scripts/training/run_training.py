@@ -9,6 +9,7 @@ import json
 import logging
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 # from torch import nn
 from torch import optim
@@ -16,10 +17,11 @@ from torch.utils.data import DataLoader
 
 from karhu import setup_logger
 from karhu.models import (
-    GMaxPredictor, setup_dataset, setup_dataset_from_samples)
+    GMaxPredictor, setup_dataset)
 from karhu.training import (
     train_model, test_model, split_dataset,
-    plot_losses, plot_pred_vs_true, get_regression_scores)
+    plot_losses, plot_pred_vs_true, plot_confusion_matrix,
+    get_regression_scores, get_classification_scores,)
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
@@ -133,13 +135,27 @@ def main():
     y_test, y_pred = test_model(
         model, test_loader, dataset=dataset, device=DEVICE)
 
-    plot_pred_vs_true(
-        y_test, y_pred,
-        filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
-    metrics = get_regression_scores(y_test, y_pred)
-    for k, v in metrics.items():
+    classification_metrics = get_classification_scores(
+        y_true=y_test, y_pred=y_pred, threshold=0.03)
+    for k, v in classification_metrics.items():
         logger.info(f"{k}: {v:.5f}")
 
+    regression_metrics = get_regression_scores(y_test, y_pred)
+    for k, v in regression_metrics.items():
+        logger.info(f"{k}: {v:.5f}")
+
+    # Plot prediction results
+    filename = os.path.join(SAVE_DIR, "pred_vs_true_testset.png")
+    fig, axs = plt.subplots(1, 2, figsize=(9, 4))
+
+    plot_pred_vs_true(y_test, y_pred, ax=axs[0],)
+    plot_confusion_matrix(
+        ax=axs[1], y_true=y_test,
+        y_pred=y_pred, threshold=0.03)
+
+    plt.tight_layout()
+    fig.savefig(filename)
+    logger.info(f"Figure saved: {filename}")
     logger.info("Total runtime: %s", datetime.now() - start_time)
 
 

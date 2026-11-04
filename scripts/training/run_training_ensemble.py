@@ -23,6 +23,7 @@ from karhu.training.train import train_model, test_model
 from karhu.training.utils_plotting import (
     plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored,
     plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram,
+    plot_confusion_matrix, get_classification_scores,
     get_regression_scores)
 
 
@@ -105,7 +106,8 @@ def main():
     ensemble_metrics = []
 
     for ens_id in range(args.ensemble_size):
-        logger.info(f"==== Training ensemble member {ens_id + 1}/{args.ensemble_size} ====")
+        logger.info(
+            f"==== Training ensemble member {ens_id + 1}/{args.ensemble_size} ====")
 
         # Different seed per ensemble member
         ens_seed = args.seed + ens_id
@@ -212,34 +214,36 @@ def main():
         logger.info(f"ENSEMBLE {k}: {v:.5f}")
         # mlflow.log_metric(f"ensemble_{k}", v)
 
-    plot_pred_vs_true(
-        y_test,
-        y_pred_mean,
-        y_pred_std=y_pred_std,
-        filename=os.path.join(SAVE_DIR, "pred_vs_true_ensemble.png"),
-    )
+    # Plot prediction results
+    filename = os.path.join(SAVE_DIR, "pred_vs_true_testset.png")
+    fig, axs = plt.subplots(1, 3, figsize=(14, 4))
+
+    plot_pred_vs_true(y_test, y_pred, y_pred_std, ax=axs[0],)
     plot_pred_vs_true_colored(
         y_test,
         y_pred_mean,
         y_pred_std,
-        os.path.join(SAVE_DIR, "pred_vs_true_colored.png")
-    )
+        ax=axs[1])
+    plot_confusion_matrix(
+        ax=axs[2], y_true=y_test,
+        y_pred=y_pred, threshold=0.03)
+
+    plt.tight_layout()
+    fig.savefig(filename)
+    logger.info(f"Figure saved: {filename}")
+
+    # Plot prediction results
+    filename = os.path.join(SAVE_DIR, "ensemble_uncertanty.png")
+    fig, axs = plt.subplots(1, 3, figsize=(14, 4))
     abs_error = np.abs(y_pred_mean - y_test)
-    plot_uncertainty_vs_error(        
-        y_pred_std,
-        abs_error,
-        os.path.join(SAVE_DIR, "uncertainty_vs_error.png")
-    )
-    plot_coverage_curve(
-        y_test,
-        y_pred_mean,
-        y_pred_std,
-        os.path.join(SAVE_DIR, "coverage_curve.png")
-    )
-    plot_uncertainty_histogram(
-        y_pred_std,
-        os.path.join(SAVE_DIR, "uncertainty_hist.png")
-    )
+    plot_uncertainty_vs_error(y_pred_std, abs_error, ax=axs[0])
+    plot_coverage_curve(y_test, y_pred_mean, y_pred_std, ax=axs[1])
+    plot_uncertainty_histogram(y_pred_std, ax=axs[2])
+    plt.tight_layout()
+    fig.savefig(filename)
+    logger.info(f"Figure saved: {filename}")
+
+    # Plot ensemble losses
     fig, axs = plt.subplots(2, 1, figsize=(10, 10))
     for ens_id in range(args.ensemble_size):
         member_dir = os.path.join(SAVE_DIR, f"ensemble_{ens_id}")
