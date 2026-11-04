@@ -236,7 +236,7 @@ class GMaxPredictor(nn.Module):
 
 
 def setup_dataset(
-        dir_paths: list, dataset_mappings: dict, logp1_transformation_c=None):
+        dir_paths: list, dataset_mappings: dict, log_transformation_c=None):
     """Creates a DatasetEquilibriumGmax with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
@@ -326,9 +326,10 @@ def setup_dataset(
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
-    if logp1_transformation_c is not None:
-        data_config["logp1_transformation_c"] = logp1_transformation_c
-        dataset.transform_labels(c=logp1_transformation_c)
+    if log_transformation_c is not None:
+        logger.debug(f"Log transforming gamma. C={log_transformation_c}.")
+        data_config["log_transformation_c"] = log_transformation_c
+        dataset.transform_labels(c=log_transformation_c)
     dataset.scale_data()
     return dataset, data_config
 

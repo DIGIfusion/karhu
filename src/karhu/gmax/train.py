@@ -383,9 +383,13 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
                 input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
             y_test = labels
         print(y_test.shape, y_pred.shape)
-        y_test_ref.append(y_test.numpy().flatten())
         y_pred = torch.clamp(y_pred, min=0.0)
-        ensemble_preds.append(y_pred.detach().numpy().flatten())
+
+        y_pred = y_pred.detach().numpy().flatten()
+        y_test = y_test.detach().numpy().flatten()
+
+        y_test_ref.append(y_test)
+        ensemble_preds.append(y_pred)
         i += 1
 
     y_test_ref = y_test_ref[0]
@@ -413,6 +417,11 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
         dataset.scaling_params["gamma"][0],
         dataset.scaling_params["gamma"][1],
     )
+
+    if dataset.transformed:
+        y_pred_mean = dataset._detransform(y_pred_mean, c=dataset.c)
+        y_pred_std = dataset._detransform(y_pred_std, c=dataset.c)
+        y_test_ref = dataset._detransform(y_test_ref, c=dataset.c)
 
     print(y_test_ref.shape, y_pred_mean.shape, y_pred_std.shape)
     return y_test_ref, y_pred_mean, y_pred_std

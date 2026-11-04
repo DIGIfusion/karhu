@@ -19,7 +19,7 @@ from karhu import setup_logger
 from karhu.gmax import (
     GMaxPredictor, setup_dataset,
     train_model, test_model, split_dataset,)
-from karhu.training import (
+from karhu import (
     plot_losses, plot_pred_vs_true, plot_confusion_matrix,
     get_regression_scores, get_classification_scores,)
 
@@ -94,8 +94,9 @@ def main():
         "b_mag": "scalars/bmag",
     }
     dataset, data_config = setup_dataset(
-        dir_paths=args.db_dirs, dataset_mappings=dataset_mappings,
-        logp1_transformation_c=args.c_logp1)
+        dir_paths=args.db_dirs,
+        dataset_mappings=dataset_mappings,
+        log_transformation_c=args.c_logp1)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 

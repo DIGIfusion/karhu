@@ -18,20 +18,18 @@ import matplotlib.pyplot as plt
 
 # Custom libraries
 from karhu.logger_config import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset
-from karhu.training.train import train_model, test_model
-from karhu.training.utils_plotting import (
+from karhu.gmax import GMaxPredictor, setup_dataset, train_model, test_model
+from karhu import (
     plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored,
     plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram,
     plot_confusion_matrix, get_classification_scores,
     get_regression_scores)
 
-
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 SAVE_NAME = f"model_{datetime.now():%Y%m%d_%H%M%S}"
-SAVE_DIR = os.path.join(SCRIPT_DIR, "../models", SAVE_NAME)
+SAVE_DIR = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
 
 
 def main():
@@ -58,8 +56,10 @@ def main():
     parser.add_argument("--weight_decay", type=float, default=0.0, help="weight_decay.",)
     parser.add_argument("--batch_size", type=int, default=256, help="Size of batch (training and validation sets).",)
     parser.add_argument("--model_name", type=str, default="KARHU", help="Name of the model to MLFLOW.",)
-    parser.add_argument("--ensemble_size", type=int, default=1, help="Number of models in the ensemble.")
+    parser.add_argument("--ensemble_size", type=int, default=3, help="Number of models in the ensemble.")
     parser.add_argument("--training_split", type=float, default=0.7, help="Fraction of the data used in training vs validation.")
+    parser.add_argument("--c_logp1", type=float, default=None, help="Constant logp1_transformation_c")
+
     args = parser.parse_args()
     logger.info(get_args_description(args))
     epochs = args.epochs
@@ -77,7 +77,20 @@ def main():
     }
 
     # Load data
-    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
+    dataset, data_config = setup_dataset(
+        dir_paths=args.db_dirs,
+        dataset_mappings=dataset_mappings,
+        log_transformation_c=args.c_logp1)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -179,13 +192,32 @@ def main():
             dataset=dataset,
             device=DEVICE
         )
+        
+        classification_metrics = get_classification_scores(
+            y_true=y_test, y_pred=y_pred, threshold=0.03)
+        for k, v in classification_metrics.items():
+            logger.info(f"{k}: {v:.5f}")
+
+        regression_metrics = get_regression_scores(y_test, y_pred)
+        for k, v in regression_metrics.items():
+            logger.info(f"{k}: {v:.5f}")
+
+        # Plot prediction results
+        filename = os.path.join(member_dir, "pred_vs_true_testset.png")
+        fig, axs = plt.subplots(1, 2, figsize=(9, 4))
+
+        plot_pred_vs_true(y_test, y_pred, ax=axs[0],)
+        plot_confusion_matrix(
+            ax=axs[1], y_true=y_test,
+            y_pred=y_pred, threshold=0.03)
+
+        plt.tight_layout()
+        fig.savefig(filename)
+        logger.info(f"Figure saved: {filename}")
 
         ensemble_preds.append(y_pred)
         metrics = get_regression_scores(y_test, y_pred)
         ensemble_metrics.append(metrics)
-
-        # for k, v in metrics.items():
-        #     mlflow.log_metric(f"{k}_member", v)
 
         logger.info(
             f"Member {ens_id} metrics: "
@@ -252,6 +284,12 @@ def main():
             val_losses = np.load(f)
             axs[0].plot(train_losses, label=f"{ens_id}")
             axs[1].plot(val_losses, label=f"{ens_id}")
+    axs[0].set_yscale("log")
+    axs[1].set_yscale("log")
+    axs[0].set_ylabel("Training Loss (log)")
+    axs[1].set_ylabel("Validation Loss (log)")
+    axs[0].set_xlabel("Epochs")
+    axs[1].set_xlabel("Epochs")
     axs[0].legend()
     axs[1].legend()
     axs[0].grid(True)
