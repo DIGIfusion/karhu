@@ -9,23 +9,25 @@ import json
 import logging
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 # from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader
 
-from dotenv import load_dotenv
-
 from karhu import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset, setup_dataset_from_samples
-from karhu.training import train_model, test_model, split_dataset
-from karhu.training import plot_losses, plot_pred_vs_true, get_regression_scores
+from karhu.models import (
+    GMaxPredictor, setup_dataset)
+from karhu.training import (
+    train_model, test_model, split_dataset,
+    plot_losses, plot_pred_vs_true, plot_confusion_matrix,
+    get_regression_scores, get_classification_scores,)
 
 # Constants
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-SCRIPT_DIR  = os.path.dirname(os.path.abspath(__file__))
-SAVE_NAME   = f"model_{datetime.now():%Y%m%d_%H%M%S}"
-SAVE_DIR    = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SAVE_NAME = f"model_{datetime.now():%Y%m%d_%H%M%S}"
+SAVE_DIR = os.path.join(SCRIPT_DIR, "../../models", SAVE_NAME)
 
 
 def main():
@@ -55,8 +57,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed.",)
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate.",)
     parser.add_argument("--batch_size", type=int, default=256, help="Size of batch (training and validation sets).",)
-    parser.add_argument("--model_name", type=str, default="KARHU", help="Name of the model to MLFLOW.",)
     parser.add_argument("--castor", action="store_true", help="Use CASTOR growth rate.")
+    parser.add_argument("--c_logp1", type=float, default=None, help="Constant logp1_transformation_c")
 
     args = parser.parse_args()
     logger.info(get_args_description(args))
@@ -81,9 +83,8 @@ def main():
     # ======================== #
 
     # Load dataset(s)
-    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
-    # dataset, data_config = setup_dataset_from_samples(
-    #     dir_paths=args.dataset_dirs)
+    dataset, data_config = setup_dataset(
+        dir_paths=args.db_dirs, logp1_transformation_c=args.c_logp1)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -117,7 +118,6 @@ def main():
     # Save model and scaling params
     torch.save(
         model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
-    dataset.save_scaling_params(SAVE_DIR)
     logger.info("Saved to: %s", SAVE_DIR)
 
     # Plot losses and save fig
@@ -133,13 +133,27 @@ def main():
     y_test, y_pred = test_model(
         model, test_loader, dataset=dataset, device=DEVICE)
 
-    plot_pred_vs_true(
-        y_test, y_pred,
-        filename=os.path.join(SAVE_DIR, "pred_vs_true_testset.png"),)
-    metrics = get_regression_scores(y_test, y_pred)
-    for k, v in metrics.items():
+    classification_metrics = get_classification_scores(
+        y_true=y_test, y_pred=y_pred, threshold=0.03)
+    for k, v in classification_metrics.items():
         logger.info(f"{k}: {v:.5f}")
 
+    regression_metrics = get_regression_scores(y_test, y_pred)
+    for k, v in regression_metrics.items():
+        logger.info(f"{k}: {v:.5f}")
+
+    # Plot prediction results
+    filename = os.path.join(SAVE_DIR, "pred_vs_true_testset.png")
+    fig, axs = plt.subplots(1, 2, figsize=(9, 4))
+
+    plot_pred_vs_true(y_test, y_pred, ax=axs[0],)
+    plot_confusion_matrix(
+        ax=axs[1], y_true=y_test,
+        y_pred=y_pred, threshold=0.03)
+
+    plt.tight_layout()
+    fig.savefig(filename)
+    logger.info(f"Figure saved: {filename}")
     logger.info("Total runtime: %s", datetime.now() - start_time)
 
 

@@ -11,9 +11,10 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
     roc_auc_score,
+    confusion_matrix
 )
 
-plt.rcParams.update({"font.size": 12})
+plt.rcParams.update({"font.size": 10})
 plt.rcParams.update({"axes.labelsize": 14})
 
 BLUE_VERY_LIGHT = "#aec9fe"
@@ -49,36 +50,128 @@ def get_regression_scores(y_true, y_pred):
     return {"mse": mse, "mae": mae, "mape": mape, "r2": r2}
 
 
-def get_classification_scores(y_true, y_pred_proba, threshold=0.5):
+def get_classification_scores(y_true, y_pred, threshold=0.5):
     """
     Calculate classification metrics for a binary 0/1 model.
-    
+
     Args:
         y_true (array-like): True labels (0 or 1).
         y_pred_proba (array-like): Predicted probabilities or logits.
         threshold (float): Threshold to convert probabilities to class labels.
-    
+
     Returns:
         metrics (dict): Dictionary containing accuracy, precision, recall, 
                         F1 score, ROC AUC, confusion matrix.
     """
     # If logits were passed   (shape [N, 1])
-    if y_pred_proba.ndim > 1:
-        y_pred_proba = y_pred_proba.squeeze()
+    if y_pred.ndim > 1:
+        y_pred = y_pred.squeeze()
 
     # Convert probabilities to 0/1
-    y_pred = (y_pred_proba >= threshold).astype(int)
-    y_true = y_true.astype(int).flatten()
+    y_pred_binary = (y_pred >= threshold).astype(int)
+    y_true_binary = (y_true >= threshold).astype(int)
+    y_true_binary = y_true_binary.astype(int).flatten()
 
     metrics = {
-        "accuracy": accuracy_score(y_true, y_pred),
-        "precision": precision_score(y_true, y_pred, zero_division=0),
-        "recall": recall_score(y_true, y_pred, zero_division=0),
-        "f1": f1_score(y_true, y_pred, zero_division=0),
-        "roc_auc": roc_auc_score(y_true, y_pred_proba)
+        "accuracy": accuracy_score(y_true_binary, y_pred_binary),
+        "precision": precision_score(y_true_binary, y_pred_binary, zero_division=0),
+        "recall": recall_score(y_true_binary, y_pred_binary, zero_division=0),
+        "f1": f1_score(y_true_binary, y_pred_binary, zero_division=0),
+        "roc_auc": roc_auc_score(y_true_binary, y_pred)
     }
 
     return metrics
+
+
+def plot_confusion_matrix(ax, y_true, y_pred, threshold=0.03, cmap="Blues"):
+    """
+    Plot a binary classification confusion matrix with classification metrics.
+
+    The x-axis represents true labels and the y-axis represents predicted
+    labels. Each cell displays the classification category, its percentage
+    of the total dataset, and the number of samples.
+
+    Args:
+        ax (matplotlib.axes.Axes): Axes on which to plot the confusion matrix.
+        y_true (array-like): True binary labels or continuous values.
+        y_pred (array-like): Predicted probabilities or continuous values.
+        threshold (float, optional): Threshold used to convert values into
+            binary class labels. Defaults to 0.03.
+        cmap (str, optional): Matplotlib colormap. Defaults to "Blues".
+
+    Returns:
+        matplotlib.axes.Axes: Axes containing the confusion matrix.
+    """
+    y_true = np.asarray(y_true).squeeze()
+    y_pred = np.asarray(y_pred).squeeze()
+
+    # Convert to binary labels
+    y_true_binary = (y_true >= threshold).astype(int)
+    y_pred_binary = (y_pred >= threshold).astype(int)
+
+    # Calculate metrics
+    metrics = get_classification_scores(
+        y_true=y_true,
+        y_pred=y_pred,
+        threshold=threshold
+    )
+
+    # Confusion matrix: rows = predicted, columns = true
+    cm = confusion_matrix(
+        y_true_binary,
+        y_pred_binary,
+        labels=[0, 1]
+    ).T
+
+    # Calculate percentages relative to total samples
+    cm_percent = 100 * cm / cm.sum()
+
+    # Plot
+    im = ax.imshow(cm, interpolation="nearest", cmap=cmap)
+
+    # Cell annotations
+    labels = [
+        ["True negatives", "False negatives"],
+        ["False positives", "True positives"]
+    ]
+
+    for i in range(2):
+        for j in range(2):
+            ax.text(
+                j, i,
+                f"{labels[i][j]}\n"
+                f"{cm_percent[i, j]:.1f}%\n({cm[i, j]:,})",
+                ha="center",
+                va="center",
+                color="white" if cm[i, j] > cm.max() / 2 else "black",
+                fontsize=9,
+                fontweight="bold"
+            )
+
+    # Axis formatting
+    ax.set(
+        xticks=[0, 1],
+        yticks=[0, 1],
+        xticklabels=["Stable", "Unstable"],
+        yticklabels=["Stable", "Unstable"],
+        xlabel="True class",
+        ylabel="Predicted class"
+    )
+
+    ax.set_title(
+        r"Stability criterion: $\gamma$<" + f"{threshold}\n"
+        f"Accuracy = {metrics['accuracy']:.3f} | "
+        f"Precision = {metrics['precision']:.3f}\n"
+        f"Recall = {metrics['recall']:.3f} | "
+        f"F1 = {metrics['f1']:.3f} | "
+        f"AUC = {metrics['roc_auc']:.3f}",
+        fontsize=9
+    )
+
+    plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    return ax
+
 
 def plot_losses(train_losses, val_losses, filename: str = None):
     """
@@ -229,29 +322,41 @@ def print_prediction_scores(y_true, y_pred):
     return mse, mae, mape, r2
 
 
-def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None):
+def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, ax=None, filename=None):
     """
     Plot predicted vs true values with optional uncertainty.
     Args:
         y_test (array-like): True values.
         y_pred (array-like): Predicted mean values.
-        y_pred_std (array-like, optional): Predictive std (ensemble uncertainty).
+        y_pred_std (array-like, optional):
+            Predictive std (ensemble uncertainty).
         filename (str): Filename to save the plot.
     """
     y_test = np.asarray(y_test).squeeze()
     y_pred = np.asarray(y_pred).squeeze()
 
+    threshold = 0.1
+    y_low_gamma_idx = y_test <= threshold
+    y_high_gamma_idx = y_test > threshold
+
     if y_pred_std is not None:
         y_pred_std = np.asarray(y_pred_std).squeeze()
 
-    metrics = get_regression_scores(y_true=y_test, y_pred=y_pred)
+    metrics_full = get_regression_scores(y_true=y_test, y_pred=y_pred)
+    metrics_low = get_regression_scores(
+        y_true=y_test[y_low_gamma_idx], y_pred=y_pred[y_low_gamma_idx])
+    metrics_high = get_regression_scores(
+        y_true=y_test[y_high_gamma_idx], y_pred=y_pred[y_high_gamma_idx])
 
-    fig, ax = plt.subplots(1, 1, figsize=(5, 4))
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(5, 4))
 
-    mae, r2 = metrics["mae"], metrics["r2"]
+    mae, r2 = metrics_full["mae"], metrics_full["r2"]
 
     if y_pred_std is not None:
         mean_std = np.mean(y_pred_std)
+        mean_std_low = np.mean(y_pred_std[y_low_gamma_idx])
+        mean_std_high = np.mean(y_pred_std[y_high_gamma_idx])
         ax.errorbar(
             y_test,
             y_pred,
@@ -261,14 +366,19 @@ def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None):
             alpha=0.4,
             ecolor="gray",
             color="black",
-            label="Prediction ±1σ"
+            label=r"Prediction $\pm 1 \sigma$"
         )
-        title = f"r2: {r2:.5f}, mae: {mae:.5f}, ⟨σ⟩: {mean_std:.5f}"
+        title = f"R2 = {r2:.5f}, MAE = {mae:.5f}, ⟨σ⟩ = {mean_std:.5f}\n"
+        title += r"($\gamma \leq 0.1$) " + f"R2 = {metrics_low['r2']:.5f}, MAE = {metrics_low['mae']:.5f}, ⟨σ⟩ = {mean_std_low:.5f}\n"
+        title += r"($\gamma > 0.1$) " + f"R2 = {metrics_high['r2']:.5f}, MAE = {metrics_high['mae']:.5f}, ⟨σ⟩ = {mean_std_high:.5f}"
+
     else:
         ax.plot(y_test, y_pred, ".", markersize=4, color="black", alpha=0.5)
-        title = f"r2: {r2:.5f}, mae: {mae:.5f}"
+        title = f"R2 = {r2:.5f}, MAE = {mae:.5f}\n"
+        title += r"($\gamma \leq 0.1$) " + f"R2 = {metrics_low['r2']:.5f}, MAE = {metrics_low['mae']:.5f}\n"
+        title += r"($\gamma > 0.1$) " + f"R2 = {metrics_high['r2']:.5f}, MAE = {metrics_high['mae']:.5f}"
 
-    ax.set_title(title)
+    ax.set_title(title, fontsize=9)
     max_val = max(np.max(y_test), np.max(y_pred))
     ax.plot([0, max_val], [0, max_val], "r", label="Ideal")
 
@@ -279,17 +389,13 @@ def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, filename=None):
     if y_pred_std is not None:
         ax.legend()
 
-    plt.tight_layout()
-
-    if filename:
-        fig.savefig(filename)
-        print(f"Figure saved: {filename}")
-
-    return fig
+    return ax
 
 
-def plot_pred_vs_true_colored(y_test, y_pred_mean, y_pred_std, filename=None):
-    fig, ax = plt.subplots(figsize=(5, 4))
+def plot_pred_vs_true_colored(
+        y_test, y_pred_mean, y_pred_std, ax=None, filename=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
 
     sc = ax.scatter(
         y_test,
@@ -311,16 +417,12 @@ def plot_pred_vs_true_colored(y_test, y_pred_mean, y_pred_std, filename=None):
     ax.set_title("Prediction colored by uncertainty")
 
     ax.grid(True)
-    plt.tight_layout()
-    if filename:
-        fig.savefig(filename)
-        print(f"Figure saved: {filename}")
-
-    return fig
+    return ax
 
 
-def plot_uncertainty_vs_error(y_pred_std, abs_error, filename=None):
-    fig, ax = plt.subplots(figsize=(5, 4))
+def plot_uncertainty_vs_error(y_pred_std, abs_error, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
 
     ax.scatter(y_pred_std, abs_error, s=10, alpha=0.6)
 
@@ -331,21 +433,17 @@ def plot_uncertainty_vs_error(y_pred_std, abs_error, filename=None):
     ax.set_title(f"σ vs error (corr = {corr:.3f})")
 
     ax.grid(True)
-    plt.tight_layout()
-    if filename:
-        fig.savefig(filename)
-        print(f"Figure saved: {filename}")
-
-    return fig
+    return ax
 
 
-def plot_coverage_curve(y_test, y_pred_mean, y_pred_std, filename=None):
+def plot_coverage_curve(y_test, y_pred_mean, y_pred_std, ax=None):
     z_scores = np.abs(y_test - y_pred_mean) / y_pred_std
 
     conf_levels = np.linspace(0.1, 0.99, 30)
     empirical = [(z_scores < c).mean() for c in conf_levels]
 
-    fig, ax = plt.subplots(figsize=(5, 4))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
 
     ax.plot(conf_levels, empirical, label="Empirical")
     ax.plot(conf_levels, conf_levels, "--", label="Ideal")
@@ -356,15 +454,12 @@ def plot_coverage_curve(y_test, y_pred_mean, y_pred_std, filename=None):
     ax.legend()
 
     ax.grid(True)
-    plt.tight_layout()
-    if filename:
-        fig.savefig(filename)
-        print(f"Figure saved: {filename}")
-    return fig
+    return ax
 
 
-def plot_uncertainty_histogram(y_pred_std, filename=None):
-    fig, ax = plt.subplots(figsize=(5, 4))
+def plot_uncertainty_histogram(y_pred_std, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 4))
 
     ax.hist(y_pred_std, bins=40, alpha=0.8)
     ax.set_xlabel("Predictive σ")
@@ -372,8 +467,4 @@ def plot_uncertainty_histogram(y_pred_std, filename=None):
     ax.set_title("Distribution of ensemble uncertainty")
 
     ax.grid(True)
-    plt.tight_layout()
-    if filename:
-        fig.savefig(filename)
-        print(f"Figure saved: {filename}")
-    return fig
+    return ax
