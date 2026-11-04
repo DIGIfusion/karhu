@@ -118,7 +118,6 @@ def main():
     # Save model and scaling params
     torch.save(
         model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
-    dataset.save_scaling_params(SAVE_DIR)
     logger.info("Saved to: %s", SAVE_DIR)
 
     # Plot losses and save fig

@@ -162,19 +162,6 @@ class DatasetEquilibriumGmax(Dataset):
             desc.append(f"  {key}: {value.shape}")
         return "\n".join(desc)
 
-    def save_scaling_params(self, save_path):
-        """Save the scaling parameters to a JSON file.
-        Args:
-            save_path (str): Path to save the JSON file.
-        """
-        with open(
-            os.path.join(save_path, "scaling_params.json"),
-            mode="w",
-            encoding="utf-8"
-        ) as f:
-            json.dump(self.scaling_params, f, ensure_ascii=False, indent=4)
-        return
-
 
 def split_datasets(
     datasets,
