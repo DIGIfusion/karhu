@@ -29,6 +29,7 @@ class DatasetEquilibriumGmax(Dataset):
         self.scaling_params = {}
         self.scaled = False
         self.transformed = False
+        self.c = 0.1
 
     def set_scaling_params(self, scaling_params):
         """
@@ -104,20 +105,22 @@ class DatasetEquilibriumGmax(Dataset):
         """Set all zeros in the labels of the dataset to a negative value"""
         self.features["growthrate"][self.features["growthrate"] == 0.0] = negative_value
 
-    def _transform(self, y, c=0.01):
+    def _transform(self, y, c):
         return np.log1p(y/c)
 
-    def _detransform(self, y, c=0.01):
+    def _detransform(self, y, c):
         return np.expm1(y)*c
 
-    def transform_labels(self):
+    def transform_labels(self, c=0.1):
         if self.transformed:
+            c = self.c
             self.features["growthrate"] = self._detransform(
-                self.features["growthrate"])
+                self.features["growthrate"], c)
             self.transformed = False
         else:
+            self.c = c
             self.features["growthrate"] = self._transform(
-                self.features["growthrate"])
+                self.features["growthrate"], c)
             self.transformed = True
 
     def minmax(self, data, scaler_min, scaler_max):

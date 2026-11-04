@@ -292,7 +292,7 @@ def setup_dataset(dir_paths: list):
     # Testing: cap gamma
     # gamma = np.minimum(0.15, gamma)
     # gamma = np.log1p(gamma/0.001)
-
+    logger.info(f"Amount of unstable equilibria in dataset: {np.sum(gamma>0.03)}/{len(gamma)} = {np.sum(gamma>0.03)/len(gamma)*100:.2f}% ")
     # --- Build tensors ---
     features = {
         "p": torch.tensor(np.expand_dims(p0.astype(np.float32), axis=1)),
@@ -339,17 +339,19 @@ def setup_dataset(dir_paths: list):
         name: (torch.min(data).item(), torch.max(data).item())
         for name, data in features.items()
     }
+    logp1_transformation_c = 0.1
 
     data_config = {
         "scaling_params": scaling_params,
         "karhu_psin_axis": karhu_psin_axis.tolist(),
         "karhu_theta_axis": karhu_theta_axis.tolist(),
         "n_removed_nan_samples": n_removed,
+        "logp1_transformation_c": logp1_transformation_c,
     }
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
-    dataset.transform_labels()
+    # dataset.transform_labels(c=logp1_transformation_c)
     dataset.scale_data()
 
     return dataset, data_config
