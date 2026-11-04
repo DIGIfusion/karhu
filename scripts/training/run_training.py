@@ -57,8 +57,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42, help="Random seed.",)
     parser.add_argument("--lr", type=float, default=0.001, help="Learning rate.",)
     parser.add_argument("--batch_size", type=int, default=256, help="Size of batch (training and validation sets).",)
-    parser.add_argument("--model_name", type=str, default="KARHU", help="Name of the model to MLFLOW.",)
     parser.add_argument("--castor", action="store_true", help="Use CASTOR growth rate.")
+    parser.add_argument("--c_logp1", type=float, default=None, help="Constant logp1_transformation_c")
 
     args = parser.parse_args()
     logger.info(get_args_description(args))
@@ -83,9 +83,8 @@ def main():
     # ======================== #
 
     # Load dataset(s)
-    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
-    # dataset, data_config = setup_dataset_from_samples(
-    #     dir_paths=args.dataset_dirs)
+    dataset, data_config = setup_dataset(
+        dir_paths=args.db_dirs, logp1_transformation_c=args.c_logp1)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 

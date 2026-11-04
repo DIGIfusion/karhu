@@ -235,11 +235,12 @@ class GMaxPredictor(nn.Module):
         )
 
 
-def setup_dataset(dir_paths: list):
+def setup_dataset(dir_paths: list, logp1_transformation_c=None):
     """Creates a DatasetEquilibriumGmax with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
     logger.debug(f"Number of datasets: {len(dir_paths)}")
+
     # Map output names to HDF5 dataset paths
     dataset_paths = {
         "qs": "profiles/qs",
@@ -289,9 +290,6 @@ def setup_dataset(dir_paths: list):
     bmag = data["bmag"]
     # beta_n = data["beta_n"]
 
-    # Testing: cap gamma
-    # gamma = np.minimum(0.15, gamma)
-    # gamma = np.log1p(gamma/0.001)
     logger.info(f"Amount of unstable equilibria in dataset: {np.sum(gamma>0.03)}/{len(gamma)} = {np.sum(gamma>0.03)/len(gamma)*100:.2f}% ")
     # --- Build tensors ---
     features = {
@@ -339,19 +337,20 @@ def setup_dataset(dir_paths: list):
         name: (torch.min(data).item(), torch.max(data).item())
         for name, data in features.items()
     }
-    logp1_transformation_c = 0.1
+    
 
     data_config = {
         "scaling_params": scaling_params,
         "karhu_psin_axis": karhu_psin_axis.tolist(),
         "karhu_theta_axis": karhu_theta_axis.tolist(),
         "n_removed_nan_samples": n_removed,
-        "logp1_transformation_c": logp1_transformation_c,
     }
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
-    dataset.transform_labels(c=logp1_transformation_c)
+    if logp1_transformation_c is not None:
+        data_config["logp1_transformation_c"] = logp1_transformation_c
+        dataset.transform_labels(c=logp1_transformation_c)
     dataset.scale_data()
 
     return dataset, data_config
