@@ -43,18 +43,16 @@ Easiest with the package manager [uv](https://docs.astral.sh/uv/getting-started/
 
 ### With `uv`
 
-## Acknowledgements
-The development of this model has been support by multiple funding sources:
-- Research Council of Finland project numbers: 355460, 358941.
-- EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 1010522200 - EUROfusion).
-
-
 0. `git clone git@github.com:DIGIfusion/karhu.git karhu && cd karhu`
 1. `uv venv --python 3.8 .venv`  $\rightarrow$ create a virtual environment 
 2. `source .venv/bin/activate`$\rightarrow$ activate virtual environment 
 3. `uv pip install . ` $\rightarrow$ install the `karhu` package (and deps) into the virtual environment
 
-Now you should be able to run `tests`
+Now you should be able to run `tests`.
 
 
+## Acknowledgements
+The development of this model has been support by multiple funding sources:
+- Research Council of Finland project numbers: 355460, 358941.
+- EUROfusion Consortium, funded by the European Union via the Euratom Research and Training Programme (Grant Agreement No 1010522200 - EUROfusion).
 
