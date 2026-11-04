@@ -9,9 +9,9 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 # Custom libraries
-from karhu.models import GMaxPredictor, setup_dataset
-from karhu.training import train_model, test_model, split_dataset
-from karhu.training import get_regression_scores
+from karhu.gmax import (
+    GMaxPredictor, setup_dataset, train_model, test_model, split_dataset)
+from karhu import get_regression_scores
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 test_model.__test__ = False
@@ -38,7 +38,19 @@ def test_training_simple():
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Load dataset(s)
-    dataset, data_config = setup_dataset(dir_paths=[dataset_dir])
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
+    dataset, data_config = setup_dataset(
+        dir_paths=[dataset_dir],
+        dataset_mappings=dataset_mappings)
     torch.manual_seed(seed)  # This changes for each ensemble member
 
     test_ratio = 0.10

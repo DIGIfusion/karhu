@@ -15,9 +15,8 @@ from torch import optim
 from torch.utils.data import DataLoader, random_split
 
 from karhu import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset
-from karhu.training import train_model, test_model
-from karhu.training import plot_losses, get_regression_scores
+from karhu.gmax import (GMaxPredictor, setup_dataset, train_model, test_model)
+from karhu import plot_losses, get_regression_scores
 
 
 # Constants
@@ -77,7 +76,19 @@ def main():
     }
 
     # Load data
-    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
+    dataset, data_config = setup_dataset(
+        dir_paths=args.db_dirs,
+        dataset_mappings=dataset_mappings)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
