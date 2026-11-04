@@ -5,7 +5,7 @@ from ray import tune
 from ray.tune.search.optuna import OptunaSearch
 from ray.air import RunConfig
 
-from karhu.models import GMaxPredictor, setup_dataset
+from karhu.gmax import GMaxPredictor, setup_dataset
 from torch.utils.data import random_split
 
 
