@@ -351,7 +351,7 @@ def setup_dataset(dir_paths: list):
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
-    # dataset.transform_labels(c=logp1_transformation_c)
+    dataset.transform_labels(c=logp1_transformation_c)
     dataset.scale_data()
 
     return dataset, data_config
