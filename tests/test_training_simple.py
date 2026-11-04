@@ -1,7 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
-
+import shutil
 import pytest
 
 import torch
@@ -60,7 +60,7 @@ def test_training_simple():
         epochs=epochs, early_stopping=False, early_stopping_min_delta=0.0001,
         early_stopping_patience=5
     )
-    print(train_losses, val_losses)
+    # print(train_losses, val_losses)
 
     y_test, y_pred = test_model(
         model, test_loader, dataset=dataset, device=device)
@@ -113,12 +113,16 @@ DATA_DIR = TEST_DIR / "data" / "db"
         ),
     ],
 )
-def test_scripts_run(script, arguments):
-    """Check that scripts execute successfully."""
+def test_scripts_run(script, arguments, tmp_path):
+    """Check that scripts execute successfully in a temporary directory."""
     script_path = SCRIPTS_DIR / script
+    temp_script = tmp_path / script
+
+    # Copy script to temporary directory
+    shutil.copy2(script_path, temp_script)
 
     result = subprocess.run(
-        [sys.executable, str(script_path), *arguments],
+        [sys.executable, str(temp_script), *arguments],
         capture_output=True,
         text=True,
         timeout=300,
