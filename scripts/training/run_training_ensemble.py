@@ -69,9 +69,9 @@ def main():
         "conv_input_sizes": (64, 64, 64, 128),
         "scalar_inputs": 2,
         "conv_kernel_sizes": (7, 5, 3),
-        "out_channels": 16,
+        "out_channels": 32,
         "pool_kernel_size": 2,
-        "fc_hidden_dims": (128, 64),
+        "fc_hidden_dims": (256, 128),
         "conv_dropout": 0.1,
         "fc_dropout": 0.2,
     }
