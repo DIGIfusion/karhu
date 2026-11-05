@@ -1,33 +1,37 @@
 """
-An example python script for running KARHU from a HELENA directory and writing the result to a file. 
+An example python script for running KARHU from a HELENA directory and
+writing the result to a file.
 """
-import argparse 
-from karhu import load_from_helena
-from karhu.models import load_model
+import argparse
+from karhu import load_karhu_input_from_helena
+from karhu.gmax import load_model
 from karhu import scale_model_input, scale_model_output
 
 import torch
 
-WP     = torch.float32  # TODO: will this change in future? 
+WP = torch.float32  # TODO: will this change in future?
 DEVICE = 'cuda' if torch.cuda.is_available() else "cpu"
-    
+
+
 def main(model_dir: str, helena_dir: str):
     model, model_config = load_model(model_dir)
     scaling_params = model_config["scaling_params"]
     model = model.to(device=DEVICE, dtype=WP)
-    x = load_from_helena(helena_dir,
+    x = load_karhu_input_from_helena(
+        helena_dir,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
     x = scale_model_input(x, scaling_params)
-    # load to device (gpu or cpu) 
+    # load to device (gpu or cpu)
     x = [_x.to(DEVICE) for _x in x]
 
-    with torch.no_grad(): 
+    with torch.no_grad():
         y = model(*x)
     y = scale_model_output(y, scaling_params)
-    return y 
+    return y
 
-if __name__ == "__main__": 
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser("Run KARHU on a HELENA directory")
     parser.add_argument("-hd", "--helena_directory", type=str, required=True, help="Path to HELENA directory")
     parser.add_argument("-m",  "--model_directory", type=str, required=True, help="Path to KARHU model directory")

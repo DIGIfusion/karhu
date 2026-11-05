@@ -5,7 +5,7 @@ from ray import tune
 from ray.tune.search.optuna import OptunaSearch
 from ray.air import RunConfig
 
-from karhu.models import GMaxPredictor, setup_dataset
+from karhu.gmax import GMaxPredictor, setup_dataset
 from torch.utils.data import random_split
 
 
@@ -75,10 +75,21 @@ def objective(config):
         "fc_dropout": 0.2,
     }
     model = GMaxPredictor(model_config)
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
     dataset, _ = setup_dataset(
         dir_paths=[
             "../../../karhu-training/db/all/interpolated64.h5",
-            ]
+            ],
+        dataset_mappings=dataset_mappings
         )
 
     n_total = len(dataset)

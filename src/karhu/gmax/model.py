@@ -9,7 +9,7 @@ from pathlib import Path
 from scipy.interpolate import interp1d
 import h5py
 
-from karhu.training.train import DatasetEquilibriumGmax
+from karhu.gmax.train import DatasetEquilibriumGmax
 
 
 logger = logging.getLogger(__name__)
@@ -227,7 +227,7 @@ class GMaxPredictor(nn.Module):
             data["shape"].to(device),
             data["b_mag"].to(device),
             data["r_mag"].to(device),
-            data["growthrate"].to(device),
+            data["gamma"].to(device),
         )
         return (
             input_p, input_qs, input_rbphi, input_shape,
@@ -235,24 +235,13 @@ class GMaxPredictor(nn.Module):
         )
 
 
-def setup_dataset(dir_paths: list, logp1_transformation_c=None):
+def setup_dataset(
+        dir_paths: list, dataset_mappings: dict, log_transformation_c=None):
     """Creates a DatasetEquilibriumGmax with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
     logger.debug(f"Number of datasets: {len(dir_paths)}")
-
-    # Map output names to HDF5 dataset paths
-    dataset_paths = {
-        "qs": "profiles/qs",
-        "p0": "profiles/p0",
-        "rbphi": "profiles/rbphi",
-        "boundary": "profiles/boundary_polar",
-        "gamma": "scalars/max_gr_mishka",
-        "rmag": "scalars/rmag",
-        "bmag": "scalars/bmag",
-        "beta_n": "scalars/betan",
-    }
-    data = {key: [] for key in dataset_paths}
+    data = {key: [] for key in dataset_mappings}
 
     for dir_path in dir_paths:
         h5_paths = sorted(
@@ -265,7 +254,7 @@ def setup_dataset(dir_paths: list, logp1_transformation_c=None):
         for h5_path in h5_paths:
             try:
                 with h5py.File(h5_path, "r") as f:
-                    for key, dataset_path in dataset_paths.items():
+                    for key, dataset_path in dataset_mappings.items():
                         data[key].append(f[dataset_path][:])
                     # Special case.
                     # Needs to be the same throughout the datasets.
@@ -280,28 +269,18 @@ def setup_dataset(dir_paths: list, logp1_transformation_c=None):
         for key, arrays in data.items()
         if arrays
     }
-    # Preserve your existing variable names
-    qs = data["qs"]
-    p0 = data["p0"]
-    rbphi = data["rbphi"]
-    boundary = data["boundary"]
-    gamma = data["gamma"]
-    rmag = data["rmag"]
-    bmag = data["bmag"]
-    # beta_n = data["beta_n"]
 
-    logger.info(f"Amount of unstable equilibria in dataset: {np.sum(gamma>0.03)}/{len(gamma)} = {np.sum(gamma>0.03)/len(gamma)*100:.2f}% ")
+    logger.info(
+        f"Amount of unstable equilibria in dataset: "
+        f"{np.sum(data['gamma']>0.03)}/{len(data['gamma'])} "
+        f"= {np.sum(data['gamma']>0.03)/len(data['gamma'])*100:.2f}% ")
+
     # --- Build tensors ---
-    features = {
-        "p": torch.tensor(np.expand_dims(p0.astype(np.float32), axis=1)),
-        "qs": torch.tensor(np.expand_dims(qs.astype(np.float32), axis=1)),
-        "rbphi": torch.tensor(np.expand_dims(rbphi.astype(np.float32), axis=1)),
-        "shape": torch.tensor(np.expand_dims(boundary.astype(np.float32), axis=1)),
-        "growthrate": torch.tensor(np.expand_dims(gamma.astype(np.float32), axis=1)),
-        "r_mag": torch.tensor(np.expand_dims(rmag.astype(np.float32), axis=1)),
-        "b_mag": torch.tensor(np.expand_dims(bmag.astype(np.float32), axis=1)),
-        # "beta_n": torch.tensor(np.expand_dims(beta_n.astype(np.float32), axis=1)),
-    }
+    features = {}
+    for key, value in data.items():
+        features[key] = torch.tensor(
+            np.expand_dims(value.astype(np.float32), axis=1))
+    logger.info(f"Features: {features.keys()}")
 
     # --- Detect NaNs per feature ---
     n_samples = next(iter(features.values())).shape[0]
@@ -337,7 +316,6 @@ def setup_dataset(dir_paths: list, logp1_transformation_c=None):
         name: (torch.min(data).item(), torch.max(data).item())
         for name, data in features.items()
     }
-    
 
     data_config = {
         "scaling_params": scaling_params,
@@ -348,11 +326,11 @@ def setup_dataset(dir_paths: list, logp1_transformation_c=None):
 
     dataset = DatasetEquilibriumGmax(features)
     dataset.set_scaling_params(scaling_params)
-    if logp1_transformation_c is not None:
-        data_config["logp1_transformation_c"] = logp1_transformation_c
-        dataset.transform_labels(c=logp1_transformation_c)
+    if log_transformation_c is not None:
+        logger.debug(f"Log transforming gamma. C={log_transformation_c}.")
+        data_config["log_transformation_c"] = log_transformation_c
+        dataset.transform_labels(c=log_transformation_c)
     dataset.scale_data()
-
     return dataset, data_config
 
 
@@ -596,3 +574,213 @@ def interpolate_psi_profile(x_0, y_0, x_1):
     # y_1 now contains the scaled down values corresponding to
     # the new locations x_1
     return y_1
+
+
+class EquilibriumPredictor(nn.Module):
+    """
+    TODO.
+    """
+
+    def __init__(self, model_config: dict,):
+        super().__init__()
+
+        self.conv_input_sizes = model_config["conv_input_sizes"]
+        self.scalar_inputs = model_config["scalar_inputs"]
+        self.out_channels = model_config["out_channels"]
+        self.conv_kernel_sizes = model_config["conv_kernel_sizes"]
+        self.pool_kernel_size = model_config["pool_kernel_size"]
+        self.fc_hidden_dims = model_config["fc_hidden_dims"]
+        self.pool_kernel_size = model_config["pool_kernel_size"]
+        self.pool = nn.MaxPool1d(
+            kernel_size=self.pool_kernel_size, stride=2, padding=0)
+
+        # --- Dropout layers ---
+        self.conv_dropout = nn.Dropout1d(p=model_config["conv_dropout"])
+        self.fc_dropout = nn.Dropout(p=model_config["fc_dropout"])
+
+        # First 4 input conv layers (1 channel in)
+        self.input_convs = nn.ModuleList(
+            [
+                nn.Conv1d(
+                    1,
+                    self.out_channels,
+                    kernel_size=self.conv_kernel_sizes[0],
+                    stride=1,
+                    padding=self.conv_kernel_sizes[0] // 2,
+                )
+                for _ in range(4)
+            ]
+        )
+
+        # Next 2 conv layers repeated 2 times each
+        self.conv1s = nn.ModuleList(
+            [
+                nn.Conv1d(
+                    self.out_channels,
+                    self.out_channels,
+                    kernel_size=self.conv_kernel_sizes[1],
+                    stride=1,
+                    padding=self.conv_kernel_sizes[1] // 2,
+                )
+                for _ in range(4)
+            ]
+        )
+
+        self.conv2s = nn.ModuleList(
+            [
+                nn.Conv1d(
+                    self.out_channels,
+                    self.out_channels,
+                    kernel_size=self.conv_kernel_sizes[2],
+                    stride=1,
+                    padding=self.conv_kernel_sizes[2] // 2,
+                )
+                for _ in range(4)
+            ]
+        )
+
+        # Compute output size after 3 poolings
+        self.flatten_dims = []
+        for size in self.conv_input_sizes:
+            conv_output = size // (2**3)
+            self.flatten_dims.append(self.out_channels * conv_output)
+
+        self.total_flatten_dim = sum(self.flatten_dims)
+
+        # Fully connected layers
+        self.fc1 = nn.Linear(
+            self.total_flatten_dim + self.scalar_inputs, self.fc_hidden_dims)
+        # self.fc2 = nn.Linear(self.fc_hidden_dims[0], self.fc_hidden_dims[1])
+        # self.fc3 = nn.Linear(self.fc_hidden_dims[1], 1)
+        self.tconv1 = nn.ConvTranspose1d(
+            self.fc_hidden_dims,  16,  kernel_size=5, stride=1)
+        self.tconv2 = nn.ConvTranspose1d(16, 12, kernel_size=5, stride=1)
+        self.tconv3 = nn.ConvTranspose1d(12, 6, kernel_size=5, stride=1)
+        self.tconv4 = nn.ConvTranspose1d(6, 3, kernel_size=5, stride=1)
+
+        self.loss_fn = nn.MSELoss()
+
+    def forward(
+        self, input_ne, input_Te, input_Ti, input_shape,
+        b_mag, r_mag, Ip, beta_n, zeff
+    ):
+        inputs = [input_ne, input_Te, input_Ti, input_shape]
+        features = []
+        scalars = torch.stack([b_mag, r_mag, Ip, beta_n, zeff], dim=1)
+
+        for i in range(4):
+            x = F.leaky_relu(self.input_convs[i](inputs[i]))
+            x = self.pool(x)
+            x = self.conv_dropout(x)
+
+            x = F.leaky_relu(self.conv1s[i](x))
+            x = self.pool(x)
+            x = self.conv_dropout(x)
+
+            x = F.leaky_relu(self.conv2s[i](x))
+            x = self.pool(x)
+            x = self.conv_dropout(x)
+
+            features.append(torch.flatten(x, start_dim=1))
+
+        x = torch.cat(features, dim=1)
+
+        # Concatenate scalars
+        scalars = scalars.view(scalars.size(0), -1)
+        x = torch.cat([x, scalars], dim=1)
+        x = F.leaky_relu(self.fc1(x))
+        x = x.reshape((-1, 128, 1))
+        x = F.leaky_relu(self.tconv1(x))
+        x = F.leaky_relu(self.tconv2(x))
+        x = F.leaky_relu(self.tconv3(x))
+        x = self.tconv4(x)
+        x = F.interpolate(x, size=64)
+
+        return x
+
+    def get_input_from_batch_data(self, data, device):
+        """
+        data:
+            Batch from DataLoader
+        decive:
+            cpu or gpu
+        """
+        (input_ne, input_Te, input_Ti, input_shape,
+         b_mag, r_mag, Ip, beta_n, zeff, p, qs, rbphi,
+         gamma) = (
+            data["ne"].to(device),
+            data["Te"].to(device),
+            data["Ti"].to(device),
+            data["shape"].to(device),
+            data["b_mag"].to(device),
+            data["r_mag"].to(device),
+            data["ip"].to(device),
+            data["beta_n"].to(device),
+            data["zeff"].to(device),
+            data["p"].to(device),
+            data["qs"].to(device),
+            data["rbphi"].to(device),
+            data["gamma"].to(device),
+        )
+        labels = torch.cat((p, qs, rbphi), dim=1)
+        return (
+            input_ne, input_Te, input_Ti, input_shape,
+            b_mag, r_mag, Ip, beta_n, zeff, labels, gamma)
+
+
+def load_model_eq(
+    model_dir: str
+) -> tuple[torch.nn.Module, dict[str, np.ndarray]]:
+    """ The model directory should contain
+    - model.pt containing the weights
+    - model_config.json containing the scaling parameters and
+      interpolation axes for the inputs and outputs
+    """
+
+    # Load model config
+    with open(
+            os.path.join(model_dir, "model_config.json",), "r",
+            encoding="utf-8",) as f:
+        model_config = json.load(f)
+
+    # Load model
+    model = EquilibriumPredictor(model_config)
+    model.load_state_dict(
+        torch.load(os.path.join(model_dir, "model.pt"), weights_only=True,)
+    )
+    model.eval()
+    return model, model_config
+
+
+def load_ensemble_model_eq(
+        ensemble_dir: str
+) -> tuple[list[torch.nn.Module], dict[str, np.ndarray]]:
+    """ The model directory should contain
+    - model.pt containing the weights
+    - model_config.json containing the scaling parameters and
+      interpolation axes for the inputs and outputs
+    """
+    # Load model config
+    with open(
+            os.path.join(ensemble_dir, "model_config.json",), "r",
+            encoding="utf-8",) as f:
+        model_config = json.load(f)
+
+    models = []
+    model_dirs = [
+        d for d in os.listdir(ensemble_dir)
+        if os.path.isdir(os.path.join(ensemble_dir, d))
+    ]
+
+    for model_dir in model_dirs:
+        # Load model
+        model = EquilibriumPredictor(model_config)
+        model.load_state_dict(
+            torch.load(
+                os.path.join(ensemble_dir, model_dir, "model.pt"),
+                weights_only=True,)
+        )
+        model.eval()
+        models.append(model)
+
+    return models, model_config

@@ -16,10 +16,10 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 from karhu import setup_logger
-from karhu.models import (
-    GMaxPredictor, setup_dataset)
-from karhu.training import (
-    train_model, test_model, split_dataset,
+from karhu.gmax import (
+    GMaxPredictor, setup_dataset,
+    train_model, test_model, split_dataset,)
+from karhu import (
     plot_losses, plot_pred_vs_true, plot_confusion_matrix,
     get_regression_scores, get_classification_scores,)
 
@@ -68,9 +68,9 @@ def main():
         "conv_input_sizes": (64, 64, 64, 128),
         "scalar_inputs": 2,
         "conv_kernel_sizes": (7, 5, 3),
-        "out_channels": 16,
+        "out_channels": 32,
         "pool_kernel_size": 2,
-        "fc_hidden_dims": (128, 64),
+        "fc_hidden_dims": (256, 128),
         "conv_dropout": 0.1,
         "fc_dropout": 0.2,
     }
@@ -83,8 +83,20 @@ def main():
     # ======================== #
 
     # Load dataset(s)
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
     dataset, data_config = setup_dataset(
-        dir_paths=args.db_dirs, logp1_transformation_c=args.c_logp1)
+        dir_paths=args.db_dirs,
+        dataset_mappings=dataset_mappings,
+        log_transformation_c=args.c_logp1)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -115,7 +127,7 @@ def main():
         np.save(f, train_losses)
         np.save(f, val_losses)
 
-    # Save model and scaling params
+    # Save model
     torch.save(
         model.state_dict(), os.path.join(SAVE_DIR, "model.pt"))
     logger.info("Saved to: %s", SAVE_DIR)
