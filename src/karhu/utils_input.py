@@ -53,48 +53,62 @@ def descale_minmax(scaled_data, scaler_min, scaler_max):
     return scaled_data * (scaler_max - scaler_min) + scaler_min
 
 
+def scale_parameter(value, scaling_params):
+    """Apply min-max scaling unless min and max are equal."""
+    min_val, max_val = scaling_params
+
+    if min_val == max_val:
+        return value
+
+    return minmax(value, min_val, max_val)
+
+
 def scale_model_input(x, scaling_params):
     """
     Scale the model input using min-max scaling.
+
     Args:
-        x (list): List of input features [p, qs, rbphi, vy, B_mag, R_mag].
+        x (list): Input features [p, qs, rbphi, vy, B_mag, R_mag].
         scaling_params (dict): Dictionary containing scaling parameters.
+
     Returns:
         list: Scaled input features.
     """
-    p, qs, rbphi, vy, B_mag, R_mag = x[0], x[1], x[2], x[3], x[4], x[5]
+    p, qs, rbphi, vy, B_mag, R_mag = x
 
-    # Scale input
-    p = minmax(p, scaling_params["p"][0], scaling_params["p"][1])
-    qs = minmax(qs, scaling_params["qs"][0], scaling_params["qs"][1])
-    rbphi = minmax(rbphi, scaling_params["rbphi"][0], scaling_params["rbphi"][1])
-    vy = minmax(vy, scaling_params["shape"][0], scaling_params["shape"][1])
-    B_mag = minmax(B_mag, scaling_params["b_mag"][0], scaling_params["b_mag"][1])
-    R_mag = minmax(R_mag, scaling_params["r_mag"][0], scaling_params["r_mag"][1])
-    return [p, qs, rbphi, vy, B_mag, R_mag,]
+    p = scale_parameter(p, scaling_params["p"])
+    qs = scale_parameter(qs, scaling_params["qs"])
+    rbphi = scale_parameter(rbphi, scaling_params["rbphi"])
+    vy = scale_parameter(vy, scaling_params["shape"])
+    B_mag = scale_parameter(B_mag, scaling_params["b_mag"])
+    R_mag = scale_parameter(R_mag, scaling_params["r_mag"])
+
+    return [p, qs, rbphi, vy, B_mag, R_mag]
 
 
 def scale_model_input_eq(x, scaling_params):
     """
-    Scale the model input using min-max scaling.
+    Scale the equilibrium model input using min-max scaling.
+
     Args:
-        x (list): List of input features [p, qs, rbphi, vy, B_mag, R_mag].
+        x (list): Input features [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff].
         scaling_params (dict): Dictionary containing scaling parameters.
+
     Returns:
         list: Scaled input features.
     """
-    ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff = x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7], x[8]
+    ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff = x
 
-    # Scale input
-    ne = minmax(ne, scaling_params["ne"][0], scaling_params["ne"][1])
-    Te = minmax(Te, scaling_params["Te"][0], scaling_params["Te"][1])
-    Ti = minmax(Ti, scaling_params["Ti"][0], scaling_params["Ti"][1])
-    vy = minmax(vy, scaling_params["shape"][0], scaling_params["shape"][1])
-    B_mag = minmax(B_mag, scaling_params["b_mag"][0], scaling_params["b_mag"][1])
-    R_mag = minmax(R_mag, scaling_params["r_mag"][0], scaling_params["r_mag"][1])
-    ip = minmax(ip, scaling_params["ip"][0], scaling_params["ip"][1])
-    beta_n = minmax(beta_n, scaling_params["beta_n"][0], scaling_params["beta_n"][1])
-    zeff = zeff #minmax(zeff, scaling_params["zeff"][0], scaling_params["zeff"][1])
+    ne = scale_parameter(ne, scaling_params["ne"])
+    Te = scale_parameter(Te, scaling_params["Te"])
+    Ti = scale_parameter(Ti, scaling_params["Ti"])
+    vy = scale_parameter(vy, scaling_params["shape"])
+    B_mag = scale_parameter(B_mag, scaling_params["b_mag"])
+    R_mag = scale_parameter(R_mag, scaling_params["r_mag"])
+    ip = scale_parameter(ip, scaling_params["ip"])
+    beta_n = scale_parameter(beta_n, scaling_params["beta_n"])
+    zeff = scale_parameter(zeff, scaling_params["zeff"])
+
     return [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff]
 
 
