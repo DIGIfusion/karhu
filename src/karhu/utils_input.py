@@ -94,7 +94,7 @@ def scale_model_input_eq(x, scaling_params):
     R_mag = minmax(R_mag, scaling_params["r_mag"][0], scaling_params["r_mag"][1])
     ip = minmax(ip, scaling_params["ip"][0], scaling_params["ip"][1])
     beta_n = minmax(beta_n, scaling_params["beta_n"][0], scaling_params["beta_n"][1])
-    zeff = minmax(zeff, scaling_params["zeff"][0], scaling_params["zeff"][1])
+    zeff = zeff #minmax(zeff, scaling_params["zeff"][0], scaling_params["zeff"][1])
     return [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff]
 
 
