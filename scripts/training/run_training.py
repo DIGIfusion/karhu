@@ -66,11 +66,11 @@ def main():
     # New setup
     model_config = {
         "conv_input_sizes": (64, 64, 64, 128),
-        "scalar_inputs": 2,
+        "scalar_inputs": 1,
         "conv_kernel_sizes": (7, 5, 3),
         "out_channels": 32,
         "pool_kernel_size": 2,
-        "fc_hidden_dims": (256, 128),
+        "fc_hidden_dims": (256, 256, 128, 128),
         "conv_dropout": 0.1,
         "fc_dropout": 0.2,
     }
@@ -90,8 +90,9 @@ def main():
         "shape": "profiles/boundary_polar",
         "gamma": "scalars/max_gr_mishka",
         # "beta_n": "scalars/betan",
-        "r_mag": "scalars/rmag",
-        "b_mag": "scalars/bmag",
+        # "r_mag": "scalars/rmag",
+        # "b_mag": "scalars/bmag",
+        "eps": "scalars/radius"
     }
     dataset, data_config = setup_dataset(
         dir_paths=args.db_dirs,
@@ -118,6 +119,7 @@ def main():
     # Train model
     train_losses, val_losses = train_model(
         model, optimizer, model.loss_fn, train_loader, val_loader,
+        dataset_mappings=dataset_mappings,
         epochs=epochs,
         early_stopping=False,
         early_stopping_min_delta=0.00001,
