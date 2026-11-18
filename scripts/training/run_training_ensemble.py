@@ -18,8 +18,9 @@ import matplotlib.pyplot as plt
 
 # Custom libraries
 from karhu.logger_config import setup_logger
-from karhu.gmax import GMaxPredictor, setup_dataset, train_model, test_model
+from karhu.gmax import GMaxPredictor, train_model, test_model
 from karhu import (
+    setup_dataset,
     plot_losses, plot_pred_vs_true, plot_pred_vs_true_colored,
     plot_uncertainty_vs_error, plot_coverage_curve, plot_uncertainty_histogram,
     plot_confusion_matrix, get_classification_scores,
@@ -83,9 +84,10 @@ def main():
         "rbphi": "profiles/rbphi",
         "shape": "profiles/boundary_polar",
         "gamma": "scalars/max_gr_mishka",
-        # "beta_n": "scalars/betan",
-        "r_mag": "scalars/rmag",
-        "b_mag": "scalars/bmag",
+        "beta_n": "scalars/betan",
+        # "r_mag": "scalars/rmag",
+        # "b_mag": "scalars/bmag",
+        "eps": "scalars/eps"
     }
     dataset, data_config = setup_dataset(
         dir_paths=args.db_dirs,
@@ -160,7 +162,8 @@ def main():
             epochs=epochs,
             early_stopping=False,
             early_stopping_min_delta=1e-5,
-            early_stopping_patience=20
+            early_stopping_patience=20,
+            dataset_mappings=dataset_mappings
         )
 
         # Save member

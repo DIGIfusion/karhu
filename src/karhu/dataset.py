@@ -10,7 +10,7 @@ from scipy.interpolate import interp1d
 logger = logging.getLogger(__name__)
 
 
-class DatasetEquilibriumGmax(Dataset):
+class KarhuDataset(Dataset):
     """ Extending the Dataset class. """
 
     def __init__(self, features):
@@ -53,7 +53,7 @@ class DatasetEquilibriumGmax(Dataset):
         This method copies the scaling parameters from another dataset
         instance.
         Args:
-            other (DatasetEquilibriumGmax): Another dataset instance
+            other (KarhuDataset): Another dataset instance
             from which to copy scaling parameters.
         """
         logger.info("Setting scaling params from another dataset...")
@@ -226,7 +226,7 @@ def split_dataset(
 
 def setup_dataset(
         dir_paths: list, dataset_mappings: dict, log_transformation_c=None):
-    """Creates a DatasetEquilibriumGmax with the files from the given path.
+    """Creates a KarhuDataset with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
     logger.debug(f"Number of datasets: {len(dir_paths)}")
@@ -313,7 +313,7 @@ def setup_dataset(
         "n_removed_nan_samples": n_removed,
     }
 
-    dataset = DatasetEquilibriumGmax(features)
+    dataset = KarhuDataset(features)
     dataset.set_scaling_params(scaling_params)
     if log_transformation_c is not None:
         logger.debug(f"Log transforming gamma. C={log_transformation_c}.")
@@ -324,7 +324,7 @@ def setup_dataset(
 
 
 def setup_dataset_from_samples(dir_paths: list[str]):
-    """Creates a DatasetEquilibriumGmax from all .h5 files in
+    """Creates a KarhuDataset from all .h5 files in
     the given directories.
 
     Each .h5 file is expected to contain one sample under the
@@ -485,7 +485,7 @@ def setup_dataset_from_samples(dir_paths: list[str]):
         "n_removed_nan_samples": n_removed,
     }
 
-    dataset = DatasetEquilibriumGmax(features)
+    dataset = KarhuDataset(features)
     dataset.set_scaling_params(scaling_params)
     dataset.scale_data()
     dataset.set_zeros_to_negative()

@@ -173,10 +173,10 @@ class GMaxPredictor(nn.Module):
         self.loss_fn = nn.MSELoss()
 
     def forward(
-            self, input_p, input_qs, input_rbphi, input_shape, b_mag,):
+            self, input_p, input_qs, input_rbphi, input_shape, eps, beta_n):
         inputs = [input_p, input_qs, input_rbphi, input_shape]
         features = []
-        scalars = torch.stack([b_mag], dim=1)
+        scalars = torch.stack([eps, beta_n], dim=1)
 
         for i in range(4):
             x = F.leaky_relu(self.input_convs[i](inputs[i]))
@@ -216,8 +216,8 @@ class GMaxPredictor(nn.Module):
         """
         (
             input_p, input_qs, input_rbphi, input_shape,
-            # b_mag, r_mag, 
-            eps,
+            # b_mag, r_mag,
+            eps, beta_n,
             labels
         ) = (
             data["p"].to(device),
@@ -227,12 +227,13 @@ class GMaxPredictor(nn.Module):
             # data["b_mag"].to(device),
             # data["r_mag"].to(device),
             data["eps"].to(device),
+            data["beta_n"].to(device),
             data["gamma"].to(device),
         )
         return (
             input_p, input_qs, input_rbphi, input_shape,
             # b_mag, r_mag,
-            eps,
+            eps, beta_n,
             labels
         )
 

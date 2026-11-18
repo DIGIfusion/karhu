@@ -58,11 +58,12 @@ def train_model(
         running_loss = 0.0
         for data in train_loader:
             # Move inputs and labels to the device
-            (input_p, input_qs, input_rbphi, input_shape, b_mag, labels) = (
+            (input_p, input_qs, input_rbphi, input_shape, eps, beta_n, labels) = (
                 model.get_input_from_batch_data(data, device, dataset_mappings)
             )
             optimizer.zero_grad()
-            outputs = model(input_p, input_qs, input_rbphi, input_shape, b_mag)
+            outputs = model(
+                input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -80,12 +81,12 @@ def train_model(
                 # Move inputs and labels to the device
                 (
                     input_p, input_qs, input_rbphi, input_shape,
-                    b_mag, labels
+                    eps, beta_n, labels
                 ) = (
                     model.get_input_from_batch_data(data, device))
                 optimizer.zero_grad()
                 outputs = model(
-                    input_p, input_qs, input_rbphi, input_shape, b_mag)
+                    input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * labels.size(0)
         val_loss = running_loss / len(val_loader.dataset)
@@ -115,11 +116,11 @@ def train_model(
 def test_model(model, test_loader, dataset, device: str = "cpu",):
     """ Get model prediction given a dataloader. """
     for data in test_loader:
-        (input_p, input_qs, input_rbphi, input_shape, b_mag, labels) = (
+        (input_p, input_qs, input_rbphi, input_shape, eps, beta_n, labels) = (
             model.get_input_from_batch_data(data, device)
         )
         y_pred = model(
-            input_p, input_qs, input_rbphi, input_shape, b_mag)
+            input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
 
         y_test = labels
 
@@ -160,11 +161,11 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
         print(f"model {i}")
         for data in test_loader:
             (input_p, input_qs, input_rbphi, input_shape,
-             b_mag, r_mag, labels) = (
+             eps, beta_n, labels) = (
                 model.get_input_from_batch_data(data, device)
             )
             y_pred = model(
-                input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+                input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
             y_test = labels
         print(y_test.shape, y_pred.shape)
         y_pred = torch.clamp(y_pred, min=0.0)
