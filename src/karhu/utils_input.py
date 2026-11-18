@@ -8,7 +8,7 @@ import math
 import torch
 import f90nml
 
-MU_0 = 4E-7 * np.pi 
+MU_0 = 4E-7 * np.pi
 
 
 def interpolate_profile(x_0, y_0, x_1):
@@ -117,5 +117,5 @@ def scale_model_output(y, scaling_params):
         y = y.item()
     except Exception:
         pass
-    growthrate = descale_minmax(y, scaling_params["growthrate"][0], scaling_params["growthrate"][1])
+    growthrate = descale_minmax(y, scaling_params["gamma"][0], scaling_params["gamma"][1])
     return growthrate
