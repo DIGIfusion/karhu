@@ -58,9 +58,12 @@ def train_model(
         running_loss = 0.0
         for data in train_loader:
             # Move inputs and labels to the device
-            (input_p, input_qs, input_rbphi, input_shape, eps, beta_n, labels) = (
-                model.get_input_from_batch_data(data, device, dataset_mappings)
-            )
+            (input_p, input_qs, input_rbphi, input_shape,
+             eps, beta_n,
+             labels
+             ) = model.get_input_from_batch_data(
+                data, device, dataset_mappings)
+
             optimizer.zero_grad()
             outputs = model(
                 input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
@@ -359,6 +362,12 @@ def test_model_eq(
             # beta_n
         )
         y_test = labels
+
+        y_test = y_test.detach().numpy()
+        y_pred = y_pred.detach().numpy()
+        gamma2 = gamma2.detach().numpy()
+        gamma_pred = gamma_pred.detach().numpy()
+
         y_pred[:, 0] = dataset.descale_minmax(
             y_pred[:, 0],
             dataset.scaling_params["p"][0],
@@ -386,10 +395,11 @@ def test_model_eq(
             dataset.scaling_params["gamma"][1],
             )
 
-    return (
-        y_test.detach().numpy(), y_pred.detach().numpy(),
-        gamma2.detach().numpy(), gamma_pred.detach().numpy()
-    )
+        if dataset.transformed:
+            gamma2 = dataset._detransform(gamma2, c=dataset.c)
+            gamma_pred = dataset._detransform(gamma_pred, c=dataset.c)
+
+    return (y_test, y_pred, gamma2, gamma_pred)
 
 
 def ensemble_predict(ensemble, x):

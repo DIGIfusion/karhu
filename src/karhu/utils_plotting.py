@@ -74,7 +74,8 @@ def get_classification_scores(y_true, y_pred, threshold=0.5):
 
     metrics = {
         "accuracy": accuracy_score(y_true_binary, y_pred_binary),
-        "precision": precision_score(y_true_binary, y_pred_binary, zero_division=0),
+        "precision": precision_score(
+            y_true_binary, y_pred_binary, zero_division=0),
         "recall": recall_score(y_true_binary, y_pred_binary, zero_division=0),
         "f1": f1_score(y_true_binary, y_pred_binary, zero_division=0),
         "roc_auc": roc_auc_score(y_true_binary, y_pred)
@@ -179,7 +180,8 @@ def plot_losses(train_losses, val_losses, filename: str = None):
     Args:
         train_losses (list): List of training losses.
         val_losses (list): List of validation losses.
-        filename (str): Filename to save the plot. If None, the plot is not saved.
+        filename (str): Filename to save the plot. If None, the
+            plot is not saved.
     """
     fig, axs = plt.subplots(1, 1, figsize=(15, 10))
     axs.plot(train_losses[1:], label="Training loss")
@@ -198,7 +200,8 @@ def plot_losses(train_losses, val_losses, filename: str = None):
 
 
 def plot_datasets(
-    _x_train, _y_train, _x_val, _y_val, _x_test, _y_test, stability_threshold=0.03
+    _x_train, _y_train, _x_val, _y_val, _x_test, _y_test,
+    stability_threshold=0.03
 ):
     """
     _x_train = dataset.features["dped"][train_data.indices]
@@ -225,9 +228,11 @@ def plot_datasets(
     print(xy_test.shape)
     z_test = gaussian_kde(xy_test)(xy_test)
 
-    sc0 = axs[0].scatter(_x_train, _y_train, c=z_train, cmap=cmap, vmin=0, vmax=400)
+    sc0 = axs[0].scatter(
+        _x_train, _y_train, c=z_train, cmap=cmap, vmin=0, vmax=400)
     stable_fraction = (
-        np.where(_y_train < stability_threshold)[0].shape[0] / _y_train.shape[0]
+        np.where(_y_train < stability_threshold)[0].shape[0]
+        / _y_train.shape[0]
     )
     axs[0].set_title(
         f"Training\n({_y_train.shape[0]} samples, {stable_fraction*100:.2f}% stable)"
@@ -251,7 +256,8 @@ def plot_datasets(
     axs[2].set_title(
         f"Test\n({_y_test.shape[0]} samples, {stable_fraction*100:.2f}% stable)"
     )
-    sc2 = axs[2].scatter(_x_test, _y_test, c=z_test, cmap=cmap, vmin=0, vmax=400)
+    sc2 = axs[2].scatter(
+        _x_test, _y_test, c=z_test, cmap=cmap, vmin=0, vmax=400)
     axs[2].set_xlabel(r"$\Delta_{\text{ped}}$")
     axs[2].set_ylabel(r"$\gamma_{\text{max}}$")
 
@@ -332,6 +338,7 @@ def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, ax=None, filename=None):
             Predictive std (ensemble uncertainty).
         filename (str): Filename to save the plot.
     """
+    print("DEBUG:", y_test.shape, y_pred.shape)
     y_test = np.asarray(y_test).squeeze()
     y_pred = np.asarray(y_pred).squeeze()
 
@@ -373,17 +380,32 @@ def plot_pred_vs_true(y_test, y_pred, y_pred_std=None, ax=None, filename=None):
         title += r"($\gamma > 0.1$) " + f"R2 = {metrics_high['r2']:.5f}, MAE = {metrics_high['mae']:.5f}, ⟨σ⟩ = {mean_std_high:.5f}"
 
     else:
-        ax.plot(y_test, y_pred, ".", markersize=4, color="black", alpha=0.5)
+
+        xy = np.vstack([y_test, y_pred])
+        density = gaussian_kde(xy)(xy)
+
+        # Plot low-density points first, high-density points on top
+        idx = density.argsort()
+        sc = ax.scatter(
+            y_test[idx],
+            y_pred[idx],
+            c=density[idx],
+            s=8,
+            cmap="viridis",
+            edgecolors="none"
+        )
+        # fig.colorbar(sc, ax=ax, label="Point density")
         title = f"R2 = {r2:.5f}, MAE = {mae:.5f}\n"
         title += r"($\gamma \leq 0.1$) " + f"R2 = {metrics_low['r2']:.5f}, MAE = {metrics_low['mae']:.5f}\n"
         title += r"($\gamma > 0.1$) " + f"R2 = {metrics_high['r2']:.5f}, MAE = {metrics_high['mae']:.5f}"
 
     ax.set_title(title, fontsize=9)
     max_val = max(np.max(y_test), np.max(y_pred))
-    ax.plot([0, max_val], [0, max_val], "r", label="Ideal")
+    ax.plot([0, max_val], [0, max_val], "r", label="Ideal", zorder=3)
 
     ax.set_xlabel(r"true $\gamma_{\text{max}}$")
     ax.set_ylabel(r"predicted $\gamma_{\text{max}}$")
+    ax.set_aspect("equal")
     ax.grid(True)
 
     if y_pred_std is not None:
@@ -415,7 +437,7 @@ def plot_pred_vs_true_colored(
     ax.set_xlabel(r"true $\gamma_{\max}$")
     ax.set_ylabel(r"predicted $\gamma_{\max}$")
     ax.set_title("Prediction colored by uncertainty")
-
+    ax.set_aspect("equal")
     ax.grid(True)
     return ax
 
@@ -468,3 +490,39 @@ def plot_uncertainty_histogram(y_pred_std, ax=None):
 
     ax.grid(True)
     return ax
+
+
+def plot_pred_vs_true_diva(y_test, y_pred, y_pred_std=None, filename=None):
+    """
+    Plot predicted vs true values with optional uncertainty.
+    Args:
+        y_test (array-like): True values.
+        y_pred (array-like): Predicted mean values.
+        y_pred_std (array-like, optional):
+            Predictive std (ensemble uncertainty).
+        filename (str): Filename to save the plot.
+    """
+    y_test = np.asarray(y_test).squeeze()
+    y_pred = np.asarray(y_pred).squeeze()
+
+    # if y_pred_std is not None:
+    #    y_pred_std = np.asarray(y_pred_std).squeeze()
+
+    # metrics = get_regression_scores(y_true=y_test, y_pred=y_pred)
+    for _ in range(10):
+        fig, ax = plt.subplots(3, 1, figsize=(5, 10))
+        idx = np.random.randint(0, len(y_test), 1)
+
+        obs = y_test[idx, :][0]
+        rec = y_pred[idx, :][0]
+        for i in range(3):
+            ax[i].plot(obs[i, :], 'k')
+            ax[i].plot(rec[i, :], 'r')
+
+        plt.tight_layout()
+
+        if filename:
+            fig.savefig(filename + '_'+str(idx)+'.png')
+            print(f"Figure saved: {filename}")
+        plt.close(fig)
+    return

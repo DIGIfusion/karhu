@@ -225,7 +225,8 @@ def split_dataset(
 
 
 def setup_dataset(
-        dir_paths: list, dataset_mappings: dict, log_transformation_c=None):
+        dir_paths: list, dataset_mappings: dict,
+        log_transformation_c: float = None, scaling_params: dict = None):
     """Creates a KarhuDataset with the files from the given path.
     Detects and removes samples containing NaNs before scaling.
     """
@@ -301,10 +302,11 @@ def setup_dataset(
     }
 
     # --- Safe scaling params (no NaNs now) ---
-    scaling_params = {
-        name: (torch.min(data).item(), torch.max(data).item())
-        for name, data in features.items()
-    }
+    if scaling_params is None:
+        scaling_params = {
+            name: (torch.min(data).item(), torch.max(data).item())
+            for name, data in features.items()
+        }
 
     data_config = {
         "scaling_params": scaling_params,
