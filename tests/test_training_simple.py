@@ -10,8 +10,8 @@ from torch.utils.data import DataLoader
 
 # Custom libraries
 from karhu.gmax import (
-    GMaxPredictor, setup_dataset, train_model, test_model, split_dataset)
-from karhu import get_regression_scores
+    GMaxPredictor, train_model, test_model)
+from karhu import get_regression_scores, setup_dataset, split_dataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 test_model.__test__ = False
@@ -44,9 +44,8 @@ def test_training_simple():
         "rbphi": "profiles/rbphi",
         "shape": "profiles/boundary_polar",
         "gamma": "scalars/max_gr_mishka",
-        # "beta_n": "scalars/betan",
-        "r_mag": "scalars/rmag",
-        "b_mag": "scalars/bmag",
+        "beta_n": "scalars/betan",
+        "eps": "scalars/eps"
     }
     dataset, data_config = setup_dataset(
         dir_paths=[dataset_dir],
@@ -70,7 +69,8 @@ def test_training_simple():
     train_losses, val_losses = train_model(
         model, optimizer, model.loss_fn, train_loader, val_loader,
         epochs=epochs, early_stopping=False, early_stopping_min_delta=0.0001,
-        early_stopping_patience=5
+        early_stopping_patience=5,
+        dataset_mappings=dataset_mappings
     )
     # print(train_losses, val_losses)
 
@@ -120,7 +120,15 @@ DATA_DIR = TEST_DIR / "data" / "db"
                 "-e", "1",
                 "-m", "CNN",
                 "--db_dirs", str(DATA_DIR),
-                "--ensemble_id", "0",
+                "--ensemble_id", "1",
+            ],
+        ),
+        (
+            "run_training_diva.py",
+            [
+                "-e", "1",
+                "-m", "CNN",
+                "--db_dirs", str(DATA_DIR),
             ],
         ),
     ],
