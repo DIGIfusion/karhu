@@ -9,9 +9,9 @@ from torch import optim
 from torch.utils.data import DataLoader
 
 # Custom libraries
-from karhu.models import GMaxPredictor, setup_dataset
-from karhu.training import train_model, test_model, split_dataset
-from karhu.training import get_regression_scores
+from karhu.gmax import (
+    GMaxPredictor, train_model, test_model)
+from karhu import get_regression_scores, setup_dataset, split_dataset
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 test_model.__test__ = False
@@ -38,7 +38,18 @@ def test_training_simple():
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     # Load dataset(s)
-    dataset, data_config = setup_dataset(dir_paths=[dataset_dir])
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        "beta_n": "scalars/betan",
+        "eps": "scalars/eps"
+    }
+    dataset, data_config = setup_dataset(
+        dir_paths=[dataset_dir],
+        dataset_mappings=dataset_mappings)
     torch.manual_seed(seed)  # This changes for each ensemble member
 
     test_ratio = 0.10
@@ -58,7 +69,8 @@ def test_training_simple():
     train_losses, val_losses = train_model(
         model, optimizer, model.loss_fn, train_loader, val_loader,
         epochs=epochs, early_stopping=False, early_stopping_min_delta=0.0001,
-        early_stopping_patience=5
+        early_stopping_patience=5,
+        dataset_mappings=dataset_mappings
     )
     # print(train_losses, val_losses)
 
@@ -108,7 +120,15 @@ DATA_DIR = TEST_DIR / "data" / "db"
                 "-e", "1",
                 "-m", "CNN",
                 "--db_dirs", str(DATA_DIR),
-                "--ensemble_id", "0",
+                "--ensemble_id", "1",
+            ],
+        ),
+        (
+            "run_training_diva.py",
+            [
+                "-e", "1",
+                "-m", "CNN",
+                "--db_dirs", str(DATA_DIR),
             ],
         ),
     ],

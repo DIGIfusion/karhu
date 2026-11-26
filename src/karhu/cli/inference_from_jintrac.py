@@ -9,8 +9,8 @@ import torch
 
 
 sys.path.append("/home/mn2596/JETPEDESTAL_ANALYSIS/karhu/src/karhu")
-from karhu.utils_helena import load_from_helena
-from karhu.models import load_model
+from karhu.utils_helena import load_karhu_input_from_helena
+from karhu.gmax import load_model
 from karhu.utils_input import scale_model_input, scale_model_output
 from karhu.common import convert_profiles_si_to_dimensionless, get_polar_from_rz
 from karhu.utils_input import interpolate_profile
@@ -19,11 +19,12 @@ from karhu.utils_input import interpolate_profile
 """
 Where to source from 
 """
-class RUNMODE(Enum): 
-    HELENA   = 0
+class RUNMODE(Enum):
+    HELENA = 0
     DATFILES = 1
 
-WP     = torch.float32  # TODO: will this change in future? 
+
+WP = torch.float32  # TODO: will this change in future?
 DEVICE = 'cuda' if torch.cuda.is_available() else "cpu"
 
 
@@ -41,9 +42,9 @@ def read_jettoin(dirname):
     rbnd = np.loadtxt(dirname + "/JETTO_RBNDin.dat")
     zbnd = np.loadtxt(dirname + "/JETTO_ZBNDin.dat")
     psig = np.loadtxt(dirname + "/JETTO_PSIin.dat")
-    pr   = np.loadtxt(dirname + "/JETTO_PRin.dat")
-    rbphi   = np.loadtxt(dirname + "/JETTO_Fin.dat")
-    q    = np.loadtxt(dirname + "/JETTO_QSFin.dat")
+    pr = np.loadtxt(dirname + "/JETTO_PRin.dat")
+    rbphi = np.loadtxt(dirname + "/JETTO_Fin.dat")
+    q = np.loadtxt(dirname + "/JETTO_QSFin.dat")
     BMAG = 1.0  # TODO/FIXME: need to get the actual Bmag and Rmag from the datfiles, for now we just set them to 1.0 since the model should be able to handle this normalisation as well, but this is not ideal
     RMAG = 1.0  # TODO/FIXME: need to get the actual Bmag and Rmag from the datfiles, for now we just set them to 1.0 since the model should be able to handle this normalisation as well, but this is not ideal
     return rbnd, zbnd, pr, q, rbphi, psig, BMAG, RMAG
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     model = model.to(device=DEVICE, dtype=WP)
 
     if args.runmode == RUNMODE.HELENA.value:
-        x = load_from_helena(args.data_directory,
+        x = load_karhu_input_from_helena(args.data_directory,
                              karhu_psin_axis=model_config["karhu_psin_axis"],
                              karhu_theta_axis=model_config["karhu_theta_axis"])
 

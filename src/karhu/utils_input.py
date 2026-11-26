@@ -8,7 +8,7 @@ import math
 import torch
 import f90nml
 
-MU_0 = 4E-7 * np.pi 
+MU_0 = 4E-7 * np.pi
 
 
 def interpolate_profile(x_0, y_0, x_1):
@@ -53,25 +53,63 @@ def descale_minmax(scaled_data, scaler_min, scaler_max):
     return scaled_data * (scaler_max - scaler_min) + scaler_min
 
 
+def scale_parameter(value, scaling_params):
+    """Apply min-max scaling unless min and max are equal."""
+    min_val, max_val = scaling_params
+
+    if min_val == max_val:
+        return value
+
+    return minmax(value, min_val, max_val)
+
+
 def scale_model_input(x, scaling_params):
     """
     Scale the model input using min-max scaling.
+
     Args:
-        x (list): List of input features [p, qs, rbphi, vy, B_mag, R_mag].
+        x (list): Input features [p, qs, rbphi, vy, B_mag, R_mag].
         scaling_params (dict): Dictionary containing scaling parameters.
+
     Returns:
         list: Scaled input features.
     """
-    p, qs, rbphi, vy, B_mag, R_mag = x[0], x[1], x[2], x[3], x[4], x[5]
+    p, qs, rbphi, vy, B_mag, R_mag = x
 
-    # Scale input
-    p = minmax(p, scaling_params["p"][0], scaling_params["p"][1])
-    qs = minmax(qs, scaling_params["qs"][0], scaling_params["qs"][1])
-    rbphi = minmax(rbphi, scaling_params["rbphi"][0], scaling_params["rbphi"][1])
-    vy = minmax(vy, scaling_params["shape"][0], scaling_params["shape"][1])
-    B_mag = minmax(B_mag, scaling_params["b_mag"][0], scaling_params["b_mag"][1])
-    R_mag = minmax(R_mag, scaling_params["r_mag"][0], scaling_params["r_mag"][1])
+    p = scale_parameter(p, scaling_params["p"])
+    qs = scale_parameter(qs, scaling_params["qs"])
+    rbphi = scale_parameter(rbphi, scaling_params["rbphi"])
+    vy = scale_parameter(vy, scaling_params["shape"])
+    B_mag = scale_parameter(B_mag, scaling_params["b_mag"])
+    R_mag = scale_parameter(R_mag, scaling_params["r_mag"])
+
     return [p, qs, rbphi, vy, B_mag, R_mag]
+
+
+def scale_model_input_eq(x, scaling_params):
+    """
+    Scale the equilibrium model input using min-max scaling.
+
+    Args:
+        x (list): Input features [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff].
+        scaling_params (dict): Dictionary containing scaling parameters.
+
+    Returns:
+        list: Scaled input features.
+    """
+    ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff = x
+
+    ne = scale_parameter(ne, scaling_params["ne"])
+    Te = scale_parameter(Te, scaling_params["Te"])
+    Ti = scale_parameter(Ti, scaling_params["Ti"])
+    vy = scale_parameter(vy, scaling_params["shape"])
+    B_mag = scale_parameter(B_mag, scaling_params["b_mag"])
+    R_mag = scale_parameter(R_mag, scaling_params["r_mag"])
+    ip = scale_parameter(ip, scaling_params["ip"])
+    beta_n = scale_parameter(beta_n, scaling_params["beta_n"])
+    zeff = scale_parameter(zeff, scaling_params["zeff"])
+
+    return [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff]
 
 
 def scale_model_output(y, scaling_params):
@@ -79,5 +117,5 @@ def scale_model_output(y, scaling_params):
         y = y.item()
     except Exception:
         pass
-    growthrate = descale_minmax(y, scaling_params["growthrate"][0], scaling_params["growthrate"][1])
+    growthrate = descale_minmax(y, scaling_params["gamma"][0], scaling_params["gamma"][1])
     return growthrate

@@ -29,7 +29,7 @@ import numpy as np
 from freeqdsk import geqdsk
 import torch
 
-from karhu.models import (
+from karhu.gmax import (
     load_model,
     load_ensemble_model,
     get_ensemble_prediction)
@@ -38,7 +38,7 @@ from karhu import (
     scale_model_input,
     scale_model_output,
     descale_minmax,
-    load_from_helena,
+    load_karhu_input_from_helena,
     load_from_eqdsk)
 
 TESTDIR = os.path.dirname(__file__)
@@ -149,7 +149,7 @@ def test_compare_inference_eqdsk_helena(eqdskpath):
         eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
-    x_helena = load_from_helena(
+    x_helena = load_karhu_input_from_helena(
         corresponding_helena,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
@@ -202,7 +202,7 @@ def test_ensemble_compare_inference_eqdsk_helena(eqdskpath):
         eqdskpath,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])
-    x_helena = load_from_helena(
+    x_helena = load_karhu_input_from_helena(
         corresponding_helena,
         karhu_psin_axis=model_config["karhu_psin_axis"],
         karhu_theta_axis=model_config["karhu_theta_axis"])

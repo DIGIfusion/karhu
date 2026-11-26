@@ -9,15 +9,19 @@ import json
 import logging
 from datetime import datetime
 import numpy as np
+import matplotlib.pyplot as plt
 import torch
 # from torch import nn
 from torch import optim
 from torch.utils.data import DataLoader, random_split
 
 from karhu import setup_logger
-from karhu.models import GMaxPredictor, setup_dataset
-from karhu.training import train_model, test_model
-from karhu.training import plot_losses, get_regression_scores
+from karhu.gmax import (GMaxPredictor, setup_dataset, train_model, test_model)
+from karhu import (
+    plot_losses, get_regression_scores,
+    plot_pred_vs_true, plot_confusion_matrix,
+    get_classification_scores,
+)
 
 
 # Constants
@@ -77,7 +81,19 @@ def main():
     }
 
     # Load data
-    dataset, data_config = setup_dataset(dir_paths=args.db_dirs)
+    dataset_mappings = {
+        "qs": "profiles/qs",
+        "p": "profiles/p0",
+        "rbphi": "profiles/rbphi",
+        "shape": "profiles/boundary_polar",
+        "gamma": "scalars/max_gr_mishka",
+        # "beta_n": "scalars/betan",
+        "r_mag": "scalars/rmag",
+        "b_mag": "scalars/bmag",
+    }
+    dataset, data_config = setup_dataset(
+        dir_paths=args.db_dirs,
+        dataset_mappings=dataset_mappings)
     config = data_config | model_config
     save_config(SAVE_DIR, config)
 
@@ -180,6 +196,27 @@ def main():
         f"Member {ens_id} metrics: "
         + ", ".join(f"{k}={v:.4f}" for k, v in metrics.items())
     )
+    classification_metrics = get_classification_scores(
+        y_true=y_test, y_pred=y_pred, threshold=0.03)
+    for k, v in classification_metrics.items():
+        logger.info(f"{k}: {v:.5f}")
+
+    regression_metrics = get_regression_scores(y_test, y_pred)
+    for k, v in regression_metrics.items():
+        logger.info(f"{k}: {v:.5f}")
+
+    # Plot prediction results
+    filename = os.path.join(SAVE_DIR, "pred_vs_true_testset.png")
+    fig, axs = plt.subplots(1, 2, figsize=(9, 4))
+
+    plot_pred_vs_true(y_test, y_pred, ax=axs[0],)
+    plot_confusion_matrix(
+        ax=axs[1], y_true=y_test,
+        y_pred=y_pred, threshold=0.03)
+
+    plt.tight_layout()
+    fig.savefig(filename)
+    logger.info(f"Figure saved: {filename}")
     logger.info("Total runtime: %s", datetime.now() - start_time)
 
 

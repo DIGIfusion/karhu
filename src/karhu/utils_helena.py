@@ -8,6 +8,8 @@ import torch
 from karhu.utils_input import interpolate_profile
 from karhu.common import get_polar_from_rz
 
+ELECTRONCHARGE = 1.6022e-19
+MU0 = 4e-7 * np.pi
 
 def read_fort20_beta_section(filename: str) -> tuple[float]:
     """
@@ -95,7 +97,8 @@ def read_fort20_beta_section(filename: str) -> tuple[float]:
 
 
 def read_lines2(lines, start, end):
-    """    Read lines from a list of strings and convert them to a numpy array of floats.
+    """
+    Read lines from a list of strings and convert them to a numpy array of floats.
     Args:
         lines (list[str]): List of strings representing lines from a file.
         start (int): Starting index of the lines to read.
@@ -273,7 +276,9 @@ def get_eps_from_f20(filename_f20):
     return eps
 
 
-def load_from_helena(helena_directory: str, karhu_psin_axis, karhu_theta_axis,) -> list[np.ndarray]:
+def load_karhu_input_from_helena(
+        helena_directory: str, karhu_psin_axis, karhu_theta_axis,
+) -> list[np.ndarray]:
     """
     Prepares the inputs to KARHU. 
     - Reads relevant data from HELENA
@@ -335,11 +340,243 @@ def load_from_helena(helena_directory: str, karhu_psin_axis, karhu_theta_axis,) 
     rhobndry, thetabndry = get_polar_from_rz(r_vals=rbdry, z_vals=zbdry, symmetric=symmetric)
     rhobndry_karhu = interpolate_profile(x_0=thetabndry, y_0=rhobndry, x_1=karhu_theta_axis)
 
-    x = [torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-         torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
-         torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+    x = [
+        torch.tensor(pressure_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(q_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(rbphi_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(rhobndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+        torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
+        torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
+    ]
+    return x
+
+
+
+def get_index_next_empty_line(lines):
+    for _i, line in enumerate(lines):
+        if len(line) == 0 or line == '\n' or line == ' \n':
+            return _i
+    return -1
+
+
+def get_index_next_line_containing_str(lines, text: str):
+    for _i, line in enumerate(lines):
+        if text in line:
+            return _i
+    return -1
+
+
+def read_helena_realworld_table(filename, NRMAP: int = 301):
+    """
+    **************************************************
+        S,   P [Pa], Ne [10^19m^-3], Te [eV],  Ti [eV],
+    **************************************************
+    """
+    npts = NRMAP - 1
+    with open(filename, "r") as file:
+        lines = file.readlines()
+
+    i_table_start = get_index_next_line_containing_str(
+        lines, "S,   P [Pa], Ne [10^19m^-3], Te [eV],  Ti [eV]")
+    numerical_lines = lines[i_table_start + 2:i_table_start + 1 + npts]
+
+    # Convert the data to numpy arrays
+    data_array = np.array(
+        [list(map(float, line.split())) for line in numerical_lines]
+    )
+
+    # Split into columns
+    data = {
+        "S": data_array[:, 0],
+        "p": data_array[:, 1],
+        "ne": data_array[:, 2],
+        "Te": data_array[:, 3],
+        "Ti": data_array[:, 4]
+    }
+
+    return data
+
+
+def read_helena_fort20_beta_section(filename):
+    """
+    ***************************************
+    MAGNETIC AXIS :   0.01908  0.00000
+    POLOIDAL BETA :   0.1198E+00
+    TOROIDAL BETA :   0.3802E-02
+    BETA STAR     :   0.4250E-02
+    NORM. BETA    :   0.00335
+    TOTAL CURRENT :   0.1428E+01
+    TOTAL AREA    :   0.5115E+01
+    TOTAL VOLUME  :   0.3110E+02
+    INT. INDUCTANCE :  0.685990E+00
+    POL. FLUX     :   0.2130E+01
+    A,B,C         :   0.4176E+01  0.1522E-01  0.1000E+01
+    ***************************************
+    """
+    data = {}
+    file = open(filename, "r")
+    lines = file.readlines()
+    for line in lines:
+        # line = file.readline()
+        if line.find("NORM. BETA") > -1:
+            spl = line.split(":")
+            data["betan"] = float(spl[1]) * 100
+        if line.find("POLOIDAL BETA") > -1:
+            spl = line.split(":")
+            data["betap"] = float(spl[1])
+        if line.find("TOTAL CURRENT") > -1:
+            spl = line.split(":")
+            data["total_current"] = float(spl[1])
+        if line.find("TOTAL AREA") > -1:
+            spl = line.split(":")
+            data["total_area"] = float(spl[1])
+        if line.find("TOTAL VOLUME") > -1:
+            spl = line.split(":")
+            data["total_volume"] = float(spl[1])
+        if line.find("TOROIDAL BETA") > -1:
+            spl = line.split(":")
+            data["beta_tor"] = float(spl[1])
+        if line.find("BETA STAR") > -1:
+            spl = line.split(":")
+            data["beta_star"] = float(spl[1])
+        if line.find("PED. BETAPOL") > -1:
+            spl = line.split(":")
+            data["helena_betap"] = float(spl[1])
+        if line.find("A,B,C") > -1:
+            spl = line.split(":")
+            sp2 = spl[1].split()
+            data["b_last_round"] = float(sp2[1])
+        if line.find("RADIUS") > -1:
+            spl = line.split(":")
+            data["radius"] = float(spl[1])
+        if line.find("B0") > -1:
+            spl = line.split(":")
+            data["b0"] = float(spl[1])
+            break
+    file.close()
+    return data
+
+
+def get_ip_from_xiab(xiab, bvac, eps, rvac):
+    """
+    Current value from normalized current.
+
+    Args:
+        xiab (float): Normalized current.
+        bvac (float): Vacuum magnetic field.
+        eps (float): Inverse aspect ratio.
+        rvac (float): Vacuum radius.
+
+    Returns:
+        float: Plasma current ip.
+    """
+    return xiab * (bvac * eps * rvac) / (1e6 * MU0)
+
+
+def get_ip_from_namelist(namelist):
+    """
+    Helper function to get ip from namelist.
+
+    Args:
+        namelist (dict): Namelist dictionary.
+
+    Returns:
+        float: Plasma current ip.
+    """
+    return get_ip_from_xiab(
+        namelist["phys"]["xiab"],
+        namelist["phys"]["bvac"],
+        namelist["phys"]["eps"],
+        namelist["phys"]["rvac"])
+    
+
+def load_equilibrium_input_from_helena(
+        helena_directory: str, karhu_psin_axis, karhu_theta_axis,
+) -> list[np.ndarray]:
+    """
+    Prepares the inputs to KARHU. 
+    - Reads relevant data from HELENA
+    - Interpolates onto the common axis (psi/rbndry) used for KARHU.
+    - Converts data to tensors
+
+    Profiles come from mapping file (fort.12) --> input into MISHKA
+    They are normalised such that p(psi=0.0) = 1,
+
+    Parameters
+    ----------
+    helena_directory : str
+        Path to the directory where fort.10/fort.12/fort.20 should be
+
+    psin_axis : sequence of float
+        List-like object defining the normalized poloidal flux grid.
+
+    theta_axis : sequence of float
+        List-like object defining the poloidal angle grid in radians.
+
+    Returns
+    -------
+    x : list of torch.Tensor
+        List of tensors formatted for KARHU model input.
+    """
+    fname_f10: str = os.path.join(helena_directory, "fort.10")
+    fname_f12: str = os.path.join(helena_directory, "fort.12")
+    fname_f20: str = os.path.join(helena_directory, "fort.20")
+
+    f12data = get_f12_data(fname_f12, variables=["CS", "QS", "RADIUS", "P0", "RBPHI", "VX", "VY"])
+    f10data = f90nml.read(fname_f10)
+    zeff = f10data["phys"]["zeff"]
+    Ip = get_ip_from_namelist(f10data)
+
+    beta_data = read_helena_fort20_beta_section(fname_f20)
+    beta_n = beta_data["betan"]
+
+    nrmap = f10data["num"]["nrmap"]
+    rw_data = read_helena_realworld_table(fname_f20, NRMAP=nrmap)
+    ne_karhu = rw_data["ne"]
+    te_karhu = rw_data["Te"]
+    ti_karhu = rw_data["Ti"]
+    S_karhu = rw_data["S"]
+    psi = S_karhu**2
+
+    RADIUS: float = f12data["RADIUS"]            # geometric axis minor radius?? 
+    # rest are numpy arrays
+    rbdry, zbdry = f12data["VX"], f12data["VY"]  # Boundary in R, Z
+
+    # geometric axis magnetic field strength
+    *_, B_0H = read_fort20_beta_section(fname_f20)
+
+    epsilon = f10data["phys"]["eps"]  # inv. aspect ratio
+    R_vac = f10data["phys"]["rvac"]   # major radius in vaccuum
+    B_vac = f10data["phys"]["bvac"]
+    R_mag = (epsilon / RADIUS) * R_vac
+    B_mag = B_vac / B_0H
+
+    # Interpolate the profiles to the axes used in model
+    ne_karhu = interpolate_profile(psi, ne_karhu, karhu_psin_axis)
+    te_karhu = interpolate_profile(psi, te_karhu, karhu_psin_axis)
+    ti_karhu = interpolate_profile(psi, ti_karhu, karhu_psin_axis)
+
+    # Construct boundary in polar coordinates
+    symmetric = f10data["shape"]["ias"] == 0
+    rhobndry, thetabndry = get_polar_from_rz(
+        r_vals=rbdry, z_vals=zbdry, symmetric=symmetric)
+    rhobndry_karhu = interpolate_profile(
+        x_0=thetabndry, y_0=rhobndry, x_1=karhu_theta_axis)
+
+    x = [torch.tensor(ne_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(te_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
+         torch.tensor(ti_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
          torch.tensor(rhobndry_karhu, dtype=torch.float32).unsqueeze(0).unsqueeze(0),
          torch.tensor(B_mag, dtype=torch.float32).unsqueeze(0),
          torch.tensor(R_mag, dtype=torch.float32).unsqueeze(0),
+         torch.tensor(Ip, dtype=torch.float32).unsqueeze(0),
+         torch.tensor(beta_n, dtype=torch.float32).unsqueeze(0),
+         torch.tensor(zeff, dtype=torch.float32).unsqueeze(0),
     ]
+    # input_ne, input_Te, input_Ti, input_shape, b_mag, r_mag, Ip, beta_n, zeff
     return x
+
+
+def create_equilibrium_input_from_arbitrary_profiles(
+    ne_karhu, te_karhu, ti_karhu):
+    return
