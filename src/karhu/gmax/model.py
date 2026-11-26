@@ -324,11 +324,11 @@ class EquilibriumPredictor(nn.Module):
 
     def forward(
         self, input_ne, input_Te, input_Ti, input_shape,
-        b_mag, r_mag, Ip, beta_n, zeff
+        b_mag, r_mag, Ip, beta_n, zeff, eps
     ):
         inputs = [input_ne, input_Te, input_Ti, input_shape]
         features = []
-        scalars = torch.stack([b_mag, r_mag, Ip, beta_n, zeff], dim=1)
+        scalars = torch.stack([b_mag, r_mag, Ip, beta_n, zeff, eps], dim=1)
 
         for i in range(4):
             x = F.leaky_relu(self.input_convs[i](inputs[i]))

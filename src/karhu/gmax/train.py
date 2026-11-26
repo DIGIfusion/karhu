@@ -277,7 +277,7 @@ def train_model_eq(
 
             outputs = model(
                 input_ne, input_Te, input_Ti, input_shape,
-                b_mag, r_mag, Ip, beta_n, zeff)
+                b_mag, r_mag, Ip, beta_n, zeff, eps)
 
             karhu_inputs = [
                 outputs[:, 0].reshape((-1, 1, 64)),
@@ -323,7 +323,7 @@ def train_model_eq(
 
                 outputs = model(
                     input_ne, input_Te, input_Ti, input_shape,
-                    b_mag, r_mag, Ip, beta_n, zeff)
+                    b_mag, r_mag, Ip, beta_n, zeff, eps)
 
                 karhu_inputs = [
                     outputs[:, 0].reshape((-1, 1, 64)),
@@ -371,7 +371,7 @@ def test_model_eq(
 
         y_pred = model(
             input_ne, input_Te, input_Ti, input_shape,
-            b_mag, r_mag, Ip, beta_n, zeff)
+            b_mag, r_mag, Ip, beta_n, zeff, eps)
 
         karhu_inputs = [
             y_pred[:, 0].reshape((-1, 1, 64)),

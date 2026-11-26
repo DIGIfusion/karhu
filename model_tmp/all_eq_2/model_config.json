@@ -258,13 +258,14 @@
         6.283185307179586
     ],
     "n_removed_nan_samples": 23,
+    "log_transformation_c": 0.01,
     "conv_input_sizes": [
         64,
         64,
         64,
         128
     ],
-    "scalar_inputs": 5,
+    "scalar_inputs": 6,
     "conv_kernel_sizes": [
         7,
         5,
