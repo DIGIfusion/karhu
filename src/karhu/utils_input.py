@@ -97,7 +97,7 @@ def scale_model_input_eq(x, scaling_params):
     Returns:
         list: Scaled input features.
     """
-    ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff = x
+    ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff, eps = x
 
     ne = scale_parameter(ne, scaling_params["ne"])
     Te = scale_parameter(Te, scaling_params["Te"])
@@ -108,8 +108,9 @@ def scale_model_input_eq(x, scaling_params):
     ip = scale_parameter(ip, scaling_params["ip"])
     beta_n = scale_parameter(beta_n, scaling_params["beta_n"])
     zeff = scale_parameter(zeff, scaling_params["zeff"])
+    eps = scale_parameter(eps, scaling_params["eps"])
 
-    return [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff]
+    return [ne, Te, Ti, vy, B_mag, R_mag, ip, beta_n, zeff, eps]
 
 
 def scale_model_output(y, scaling_params):
