@@ -17,9 +17,10 @@ from torch.utils.data import DataLoader
 
 from karhu import setup_logger
 from karhu.gmax import (
-    GMaxPredictor, setup_dataset,
+    GMaxPredictor,
     train_model, test_model, split_dataset,)
 from karhu import (
+    setup_dataset,
     plot_losses, plot_pred_vs_true, plot_confusion_matrix,
     get_regression_scores, get_classification_scores,)
 
@@ -70,7 +71,7 @@ def main():
         "conv_kernel_sizes": (7, 5, 3),
         "out_channels": 32,
         "pool_kernel_size": 2,
-        "fc_hidden_dims": (256, 128),
+        "fc_hidden_dims": (256, 256, 128, 128),
         "conv_dropout": 0.1,
         "fc_dropout": 0.2,
     }
@@ -89,9 +90,11 @@ def main():
         "rbphi": "profiles/rbphi",
         "shape": "profiles/boundary_polar",
         "gamma": "scalars/max_gr_mishka",
-        # "beta_n": "scalars/betan",
-        "r_mag": "scalars/rmag",
-        "b_mag": "scalars/bmag",
+        "beta_n": "scalars/betan",
+        # "r_mag": "scalars/rmag",
+        # "b_mag": "scalars/bmag",
+        # "eps": "scalars/radius"
+        "eps": "scalars/eps"
     }
     dataset, data_config = setup_dataset(
         dir_paths=args.db_dirs,
@@ -118,6 +121,7 @@ def main():
     # Train model
     train_losses, val_losses = train_model(
         model, optimizer, model.loss_fn, train_loader, val_loader,
+        dataset_mappings=dataset_mappings,
         epochs=epochs,
         early_stopping=False,
         early_stopping_min_delta=0.00001,

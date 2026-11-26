@@ -1,233 +1,19 @@
+"""
+ python -u scripts/training/run_training_eq.py -e 10 -m test-eq --db_dirs /scratch/project_2009007/ambrunc/dev_karhu
+/karhu-training/db_psi075_1d2/db_aug/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_diiid/ /scratch/project_2009007/ambru
+nc/dev_karhu/karhu-training/db_psi075_1d2/db_jet/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_jt60sa/ /scratch/project_
+2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_mastu/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_tcv/
+"""
 import time
-import os
-import json
 import logging
-
-# import json
 import numpy as np
 import torch
-from torch.utils.data import Dataset, random_split  #, ConcatDataset, DataLoader
-# import mlflow
 
 from karhu.addon_stopping import EarlyStopping
-# from karhu.training.utils_plotting import get_regression_scores
+from .model import get_ensemble_prediction
 
 
 logger = logging.getLogger(__name__)
-
-
-class DatasetEquilibriumGmax(Dataset):
-    """ Extending the Dataset class. """
-
-    def __init__(self, features):
-        """Initialize the dataset with features.
-        Args:
-            features (dict): Dictionary of features where keys are feature
-                names and values are numpy arrays.
-        """
-        self.features = features
-        self.scaling_params = {}
-        self.scaled = False
-        self.transformed = False
-        self.c = 0.1
-
-    def set_scaling_params(self, scaling_params):
-        """
-        Set the scaling parameters from a dict.
-        """
-        self.scaling_params = scaling_params
-        return
-
-    def set_scaling_params_from_data(self):
-        """
-        Set the scaling parameters for each feature based on the data.
-        This method calculates the min and max values for each feature
-        and stores them in the scalers dictionary.
-        """
-        logger.info("Setting scaling params from data...")
-        if self.scaled:
-            logger.warning("WARNING: Profiles have already been scaled.")
-        self.scaling_params = {
-            name: (torch.min(data).item(), torch.max(data).item())
-            for name, data in self.features.items()
-        }
-        logger.info(f"Scaling params: {self.scaling_params}")
-        return
-
-    def set_scaling_params_from_dataset(self, other):
-        """Set the scaling parameters from another dataset.
-        This method copies the scaling parameters from another dataset
-        instance.
-        Args:
-            other (DatasetEquilibriumGmax): Another dataset instance
-            from which to copy scaling parameters.
-        """
-        logger.info("Setting scaling params from another dataset...")
-        self.scaling_params = other.scalers.copy()
-        logger.info(f"Scaling params: {self.scaling_params}")
-
-    def get_scaling_params(self):
-        """Get the scaling parameters for each feature.
-        Returns:
-            dict: Dictionary of scaling parameters where keys are feature
-            names and values are tuples of (min, max).
-        """
-        scaling_params = {}
-        for name, scaler in self.scaling_params.items():
-            scaling_params[f"{name}_min"] = scaler[0]
-            scaling_params[f"{name}_max"] = scaler[1]
-        return scaling_params
-
-    def scale_data(self):
-        """Perform min-max scaling on the data"""
-        logger.info("Scaling data...")
-        if not self.scaled:
-            for name, data in self.features.items():
-                min_, max_ = self.scaling_params[name]
-                if max_ != min_:
-                    self.features[name] = (data - min_) / (max_ - min_)
-            self.scaled = True
-        else:
-            print("Data already scaled.")
-
-    def descale_data(self):
-        """Undo the minmax scaling on the data"""
-        if self.scaled:
-            for name, data in self.features.items():
-                min_, max_ = self.scaling_params[name]
-                if max_ != min_:
-                    self.features[name] = data * (max_ - min_) + min_
-            self.scaled = False
-        else:
-            print("Data is not scaled.")
-
-    def set_zeros_to_negative(self, negative_value: float = -1.0):
-        """Set all zeros in the labels of the dataset to a negative value"""
-        self.features["gamma"][self.features["gamma"] == 0.0] = negative_value
-
-    def _transform(self, y, c):
-        return np.log1p(y/c)
-
-    def _detransform(self, y, c):
-        return np.expm1(y)*c
-
-    def transform_labels(self, c=0.1):
-        if self.transformed:
-            c = self.c
-            self.features["gamma"] = self._detransform(
-                self.features["gamma"], c)
-            self.transformed = False
-        else:
-            self.c = c
-            self.features["gamma"] = self._transform(
-                self.features["gamma"], c)
-            self.transformed = True
-
-    def minmax(self, data, scaler_min, scaler_max):
-        """Perform min-max scaling on the data.
-        Args:
-            data (torch.Tensor): Data to be scaled.
-            scaler_min (float): Minimum value for scaling.
-            scaler_max (float): Maximum value for scaling.
-        Returns:
-            torch.Tensor: Scaled data.
-        """
-        return (data - scaler_min) / (scaler_max - scaler_min)
-
-    def descale_minmax(self, scaled_data, scaler_min, scaler_max):
-        """Undo the min-max scaling on the data.
-        Args:
-            scaled_data (torch.Tensor): Scaled data to be descaled.
-            scaler_min (float): Minimum value used for scaling.
-            scaler_max (float): Maximum value used for scaling.
-        Returns:
-            torch.Tensor: Descaled data.
-        """
-        return scaled_data * (scaler_max - scaler_min) + scaler_min
-
-    def __getitem__(self, index):
-        return {name: data[index] for name, data in self.features.items()}
-
-    def __len__(self):
-        return len(next(iter(self.features.values())))
-
-    def get_features_description(self):
-        """Get a description of the features in the dataset.
-        Returns:
-            str: Description of the features and their shapes.
-        """
-        desc = []
-        desc.append("Features in dataset:")
-        for key, value in self.features.items():
-            desc.append(f"  {key}: {value.shape}")
-        return "\n".join(desc)
-
-
-def split_datasets(
-    datasets,
-    train_ratio=0.70,
-    val_ratio=0.20,
-    test_ratio=0.10,
-    base_seed=42,
-    ensemble_seed=0,
-):
-    train_sets = []
-    val_sets = []
-    test_sets = []
-
-    for i, (dataset, _) in enumerate(datasets):
-        train_data, val_data, test_data = split_dataset(
-            dataset,
-            train_ratio,
-            val_ratio,
-            test_ratio,
-            base_seed,
-            ensemble_seed + i
-        )
-
-        train_sets.append(train_data)
-        val_sets.append(val_data)
-        test_sets.append(test_data)
-
-    return train_sets, val_sets, test_sets
-
-
-def split_dataset(
-    dataset,
-    train_ratio=0.70,
-    val_ratio=0.20,
-    test_ratio=0.10,
-    base_seed=42,
-    ensemble_seed=None
-):
-
-    if ensemble_seed is None:
-        ensemble_seed = base_seed
-
-    n_total = len(dataset)
-    n_test = int(test_ratio * n_total)
-    n_trainval = n_total - n_test
-
-    # --- Fixed test split (dataset-specific but reproducible) ---
-    g_test = torch.Generator().manual_seed(base_seed)
-    trainval_data, test_data = random_split(
-        dataset,
-        [n_trainval, n_test],
-        generator=g_test,
-    )
-
-    # --- Train / val split (varies per ensemble member) ---
-    n_train = int(train_ratio * n_total)
-    n_val = n_trainval - n_train
-
-    g_tv = torch.Generator().manual_seed(ensemble_seed)
-    train_data, val_data = random_split(
-        trainval_data,
-        [n_train, n_val],
-        generator=g_tv,
-    )
-
-    return train_data, val_data, test_data
 
 
 def train_model(
@@ -236,6 +22,7 @@ def train_model(
     criterion,
     train_loader,
     val_loader,
+    dataset_mappings: dict,
     epochs=200,
     device: str = "cpu",
     early_stopping: bool = False,
@@ -252,17 +39,17 @@ def train_model(
         epochs (int): Number of epochs to train the model.
         device (str): Device to use for training ('cpu' or 'cuda').
         early_stopping (bool): Whether to use early stopping.
-        early_stopping_patience (int): Number of epochs with no improvement after
-            which training will be stopped.
-        early_stopping_min_delta (float): Minimum change in the monitored quantity
-            to qualify as an improvement.
+        early_stopping_patience (int): Number of epochs with no
+            improvement after which training will be stopped.
+        early_stopping_min_delta (float): Minimum change in the
+            monitored quantity to qualify as an improvement.
     Returns:
         tuple: Training and validation losses for each epoch.
     """
     start_time = time.time()
     train_losses, val_losses = [], []
     if early_stopping:
-        print(
+        logger.info(
             f"Early stopping constraints: patience={early_stopping_patience}, "
             + f"min_delta={early_stopping_min_delta}"
         )
@@ -278,11 +65,15 @@ def train_model(
         running_loss = 0.0
         for data in train_loader:
             # Move inputs and labels to the device
-            (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
-                model.get_input_from_batch_data(data, device)
-            )
+            (input_p, input_qs, input_rbphi, input_shape,
+             eps, beta_n,
+             labels
+             ) = model.get_input_from_batch_data(
+                data, device, dataset_mappings)
+
             optimizer.zero_grad()
-            outputs = model(input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+            outputs = model(
+                input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
@@ -298,10 +89,14 @@ def train_model(
         with torch.no_grad():
             for data in val_loader:
                 # Move inputs and labels to the device
-                (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
+                (
+                    input_p, input_qs, input_rbphi, input_shape,
+                    eps, beta_n, labels
+                ) = (
                     model.get_input_from_batch_data(data, device))
                 optimizer.zero_grad()
-                outputs = model(input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+                outputs = model(
+                    input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
                 loss = criterion(outputs, labels)
                 running_loss += loss.item() * labels.size(0)
         val_loss = running_loss / len(val_loader.dataset)
@@ -317,7 +112,7 @@ def train_model(
         if early_stopping:   # and epoch > 200:
             early_stopper(val_loss, model, epoch=epoch)
             if early_stopper.early_stop:
-                print("Early stopping")
+                logger.info("Early stopping")
                 break
 
     # Load the best model
@@ -331,11 +126,11 @@ def train_model(
 def test_model(model, test_loader, dataset, device: str = "cpu",):
     """ Get model prediction given a dataloader. """
     for data in test_loader:
-        (input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag, labels) = (
+        (input_p, input_qs, input_rbphi, input_shape, eps, beta_n, labels) = (
             model.get_input_from_batch_data(data, device)
         )
         y_pred = model(
-            input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+            input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
 
         y_test = labels
 
@@ -373,14 +168,13 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
 
     i = 0
     for model in models:
-        print(f"model {i}")
         for data in test_loader:
             (input_p, input_qs, input_rbphi, input_shape,
-             b_mag, r_mag, labels) = (
+             eps, beta_n, labels) = (
                 model.get_input_from_batch_data(data, device)
             )
             y_pred = model(
-                input_p, input_qs, input_rbphi, input_shape, b_mag, r_mag)
+                input_p, input_qs, input_rbphi, input_shape, eps, beta_n)
             y_test = labels
         print(y_test.shape, y_pred.shape)
         y_pred = torch.clamp(y_pred, min=0.0)
@@ -423,13 +217,12 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
         y_pred_std = dataset._detransform(y_pred_std, c=dataset.c)
         y_test_ref = dataset._detransform(y_test_ref, c=dataset.c)
 
-    print(y_test_ref.shape, y_pred_mean.shape, y_pred_std.shape)
     return y_test_ref, y_pred_mean, y_pred_std
 
 
 def train_model_eq(
     model,
-    model_karhu,
+    karhu_model,
     optimizer,
     criterion,
     train_loader,
@@ -450,10 +243,10 @@ def train_model_eq(
         epochs (int): Number of epochs to train the model.
         device (str): Device to use for training ('cpu' or 'cuda').
         early_stopping (bool): Whether to use early stopping.
-        early_stopping_patience (int): Number of epochs with no improvement after
-            which training will be stopped.
-        early_stopping_min_delta (float): Minimum change in the monitored quantity
-            to qualify as an improvement.
+        early_stopping_patience (int): Number of epochs with no
+            improvement after which training will be stopped.
+        early_stopping_min_delta (float): Minimum change in the
+            monitored quantity to qualify as an improvement.
     Returns:
         tuple: Training and validation losses for each epoch.
     """
@@ -477,7 +270,7 @@ def train_model_eq(
         for data in train_loader:
             # Move inputs and labels to the device
             (input_ne, input_Te, input_Ti, input_shape,
-             b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+             b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
                 model.get_input_from_batch_data(data, device)
             )
             optimizer.zero_grad()
@@ -485,16 +278,30 @@ def train_model_eq(
             outputs = model(
                 input_ne, input_Te, input_Ti, input_shape,
                 b_mag, r_mag, Ip, beta_n, zeff)
-            gamma_pred = model_karhu(
+
+            karhu_inputs = [
                 outputs[:, 0].reshape((-1, 1, 64)),
                 outputs[:, 1].reshape((-1, 1, 64)),
                 outputs[:, 2].reshape((-1, 1, 64)),
                 input_shape,
-                b_mag,
-                r_mag
-                # beta_n
-            )
-            loss = criterion(gamma_pred, gamma2)
+                eps,
+                beta_n
+            ]
+            # logger.info(f"{gamma2.shape, eps.shape, beta_n.shape}")
+
+            gamma_pred = karhu_model(*karhu_inputs)
+            # gamma_pred = model_karhu(
+            #     outputs[:, 0].reshape((-1, 1, 64)),
+            #     outputs[:, 1].reshape((-1, 1, 64)),
+            #     outputs[:, 2].reshape((-1, 1, 64)),
+            #     input_shape,
+            #     b_mag,
+            #     r_mag
+            #     # beta_n
+            # )
+            # gamma_pred = torch.tensor(np.expand_dims(gamma_pred.astype(np.float32), axis=1))
+            # logger.info(f"{gamma_pred.shape, gamma2.shape}")
+            loss = criterion(gamma2, gamma_pred)
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * gamma2.size(0)
@@ -509,7 +316,7 @@ def train_model_eq(
             for data in val_loader:
                 # Move inputs and labels to the device
                 (input_ne, input_Te, input_Ti, input_shape,
-                 b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+                 b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
                     model.get_input_from_batch_data(data, device)
                 )
                 optimizer.zero_grad()
@@ -517,15 +324,16 @@ def train_model_eq(
                 outputs = model(
                     input_ne, input_Te, input_Ti, input_shape,
                     b_mag, r_mag, Ip, beta_n, zeff)
-                gamma_pred = model_karhu(
+
+                karhu_inputs = [
                     outputs[:, 0].reshape((-1, 1, 64)),
                     outputs[:, 1].reshape((-1, 1, 64)),
                     outputs[:, 2].reshape((-1, 1, 64)),
                     input_shape,
-                    b_mag,
-                    r_mag
-                    # beta_n
-                )
+                    eps,
+                    beta_n
+                ]
+                gamma_pred = karhu_model(*karhu_inputs)
                 loss = criterion(gamma_pred, gamma2)
                 # running_loss += loss.item() * labels.size(0)
                 running_loss += loss.item() * gamma2.size(0)
@@ -553,27 +361,36 @@ def train_model_eq(
 
 
 def test_model_eq(
-        model, model_karhu, test_loader, dataset, device: str = "cpu"):
+        model, karhu_model, test_loader, dataset, device: str = "cpu"):
 
     for data in test_loader:
         (input_ne, input_Te, input_Ti, input_shape,
-         b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+         b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
             model.get_input_from_batch_data(data, device)
         )
 
         y_pred = model(
             input_ne, input_Te, input_Ti, input_shape,
             b_mag, r_mag, Ip, beta_n, zeff)
-        gamma_pred = model_karhu(
+
+        karhu_inputs = [
             y_pred[:, 0].reshape((-1, 1, 64)),
             y_pred[:, 1].reshape((-1, 1, 64)),
             y_pred[:, 2].reshape((-1, 1, 64)),
             input_shape,
-            b_mag,
-            r_mag
-            # beta_n
-        )
+            eps,
+            beta_n
+        ]
+        # gamma_pred, gamma_pred_std = get_ensemble_prediction(
+        #     models=karhu_models, model_inputs=karhu_inputs)
+        gamma_pred = karhu_model(*karhu_inputs)
         y_test = labels
+
+        y_test = y_test.detach().numpy()
+        y_pred = y_pred.detach().numpy()
+        gamma2 = gamma2.detach().numpy()
+        gamma_pred = gamma_pred.detach().numpy()
+
         y_pred[:, 0] = dataset.descale_minmax(
             y_pred[:, 0],
             dataset.scaling_params["p"][0],
@@ -601,10 +418,11 @@ def test_model_eq(
             dataset.scaling_params["gamma"][1],
             )
 
-    return (
-        y_test.detach().numpy(), y_pred.detach().numpy(),
-        gamma2.detach().numpy(), gamma_pred.detach().numpy()
-    )
+        if dataset.transformed:
+            gamma2 = dataset._detransform(gamma2, c=dataset.c)
+            gamma_pred = dataset._detransform(gamma_pred, c=dataset.c)
+
+    return (y_test, y_pred, gamma2, gamma_pred)
 
 
 def ensemble_predict(ensemble, x):

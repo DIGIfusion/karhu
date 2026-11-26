@@ -90,7 +90,7 @@ def main():
     model_karhu = GMaxPredictor(karhu_model_config)
     model_karhu.load_state_dict(
         torch.load(
-            '/scratch/project_2009007/ambrunc/dev_karhu/karhu/models/model_20261104_234609/ensemble_1/model.pt',
+            '/scratch/project_2009007/ambrunc/dev_karhu/karhu/model_tmp/all_karhu/model.pt',
             weights_only=True))
 
     epochs = args.epochs
