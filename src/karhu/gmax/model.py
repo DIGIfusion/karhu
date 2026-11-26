@@ -368,7 +368,7 @@ class EquilibriumPredictor(nn.Module):
             cpu or gpu
         """
         (input_ne, input_Te, input_Ti, input_shape,
-         b_mag, r_mag, Ip, beta_n, zeff, p, qs, rbphi,
+         b_mag, r_mag, Ip, beta_n, zeff, eps, p, qs, rbphi,
          gamma) = (
             data["ne"].to(device),
             data["Te"].to(device),
@@ -379,6 +379,7 @@ class EquilibriumPredictor(nn.Module):
             data["ip"].to(device),
             data["beta_n"].to(device),
             data["zeff"].to(device),
+            data["eps"].to(device),
             data["p"].to(device),
             data["qs"].to(device),
             data["rbphi"].to(device),
@@ -387,7 +388,7 @@ class EquilibriumPredictor(nn.Module):
         labels = torch.cat((p, qs, rbphi), dim=1)
         return (
             input_ne, input_Te, input_Ti, input_shape,
-            b_mag, r_mag, Ip, beta_n, zeff, labels, gamma)
+            b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma)
 
 
 def load_model_eq(

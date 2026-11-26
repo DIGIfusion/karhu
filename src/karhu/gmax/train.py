@@ -1,9 +1,16 @@
+"""
+ python -u scripts/training/run_training_eq.py -e 10 -m test-eq --db_dirs /scratch/project_2009007/ambrunc/dev_karhu
+/karhu-training/db_psi075_1d2/db_aug/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_diiid/ /scratch/project_2009007/ambru
+nc/dev_karhu/karhu-training/db_psi075_1d2/db_jet/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_jt60sa/ /scratch/project_
+2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_mastu/ /scratch/project_2009007/ambrunc/dev_karhu/karhu-training/db_psi075_1d2/db_tcv/
+"""
 import time
 import logging
 import numpy as np
 import torch
 
 from karhu.addon_stopping import EarlyStopping
+from .model import get_ensemble_prediction
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +49,7 @@ def train_model(
     start_time = time.time()
     train_losses, val_losses = [], []
     if early_stopping:
-        print(
+        logger.info(
             f"Early stopping constraints: patience={early_stopping_patience}, "
             + f"min_delta={early_stopping_min_delta}"
         )
@@ -105,7 +112,7 @@ def train_model(
         if early_stopping:   # and epoch > 200:
             early_stopper(val_loss, model, epoch=epoch)
             if early_stopper.early_stop:
-                print("Early stopping")
+                logger.info("Early stopping")
                 break
 
     # Load the best model
@@ -161,7 +168,6 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
 
     i = 0
     for model in models:
-        print(f"model {i}")
         for data in test_loader:
             (input_p, input_qs, input_rbphi, input_shape,
              eps, beta_n, labels) = (
@@ -211,13 +217,12 @@ def test_ensemble(models, test_loader, dataset, device: str = "cpu",):
         y_pred_std = dataset._detransform(y_pred_std, c=dataset.c)
         y_test_ref = dataset._detransform(y_test_ref, c=dataset.c)
 
-    print(y_test_ref.shape, y_pred_mean.shape, y_pred_std.shape)
     return y_test_ref, y_pred_mean, y_pred_std
 
 
 def train_model_eq(
     model,
-    model_karhu,
+    karhu_model,
     optimizer,
     criterion,
     train_loader,
@@ -265,7 +270,7 @@ def train_model_eq(
         for data in train_loader:
             # Move inputs and labels to the device
             (input_ne, input_Te, input_Ti, input_shape,
-             b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+             b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
                 model.get_input_from_batch_data(data, device)
             )
             optimizer.zero_grad()
@@ -273,16 +278,30 @@ def train_model_eq(
             outputs = model(
                 input_ne, input_Te, input_Ti, input_shape,
                 b_mag, r_mag, Ip, beta_n, zeff)
-            gamma_pred = model_karhu(
+
+            karhu_inputs = [
                 outputs[:, 0].reshape((-1, 1, 64)),
                 outputs[:, 1].reshape((-1, 1, 64)),
                 outputs[:, 2].reshape((-1, 1, 64)),
                 input_shape,
-                b_mag,
-                r_mag
-                # beta_n
-            )
-            loss = criterion(gamma_pred, gamma2)
+                eps,
+                beta_n
+            ]
+            # logger.info(f"{gamma2.shape, eps.shape, beta_n.shape}")
+
+            gamma_pred = karhu_model(*karhu_inputs)
+            # gamma_pred = model_karhu(
+            #     outputs[:, 0].reshape((-1, 1, 64)),
+            #     outputs[:, 1].reshape((-1, 1, 64)),
+            #     outputs[:, 2].reshape((-1, 1, 64)),
+            #     input_shape,
+            #     b_mag,
+            #     r_mag
+            #     # beta_n
+            # )
+            # gamma_pred = torch.tensor(np.expand_dims(gamma_pred.astype(np.float32), axis=1))
+            # logger.info(f"{gamma_pred.shape, gamma2.shape}")
+            loss = criterion(gamma2, gamma_pred)
             loss.backward()
             optimizer.step()
             running_loss += loss.item() * gamma2.size(0)
@@ -297,7 +316,7 @@ def train_model_eq(
             for data in val_loader:
                 # Move inputs and labels to the device
                 (input_ne, input_Te, input_Ti, input_shape,
-                 b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+                 b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
                     model.get_input_from_batch_data(data, device)
                 )
                 optimizer.zero_grad()
@@ -305,15 +324,16 @@ def train_model_eq(
                 outputs = model(
                     input_ne, input_Te, input_Ti, input_shape,
                     b_mag, r_mag, Ip, beta_n, zeff)
-                gamma_pred = model_karhu(
+
+                karhu_inputs = [
                     outputs[:, 0].reshape((-1, 1, 64)),
                     outputs[:, 1].reshape((-1, 1, 64)),
                     outputs[:, 2].reshape((-1, 1, 64)),
                     input_shape,
-                    b_mag,
-                    r_mag
-                    # beta_n
-                )
+                    eps,
+                    beta_n
+                ]
+                gamma_pred = karhu_model(*karhu_inputs)
                 loss = criterion(gamma_pred, gamma2)
                 # running_loss += loss.item() * labels.size(0)
                 running_loss += loss.item() * gamma2.size(0)
@@ -341,26 +361,29 @@ def train_model_eq(
 
 
 def test_model_eq(
-        model, model_karhu, test_loader, dataset, device: str = "cpu"):
+        model, karhu_model, test_loader, dataset, device: str = "cpu"):
 
     for data in test_loader:
         (input_ne, input_Te, input_Ti, input_shape,
-         b_mag, r_mag, Ip, beta_n, zeff, labels, gamma2) = (
+         b_mag, r_mag, Ip, beta_n, zeff, eps, labels, gamma2) = (
             model.get_input_from_batch_data(data, device)
         )
 
         y_pred = model(
             input_ne, input_Te, input_Ti, input_shape,
             b_mag, r_mag, Ip, beta_n, zeff)
-        gamma_pred = model_karhu(
+
+        karhu_inputs = [
             y_pred[:, 0].reshape((-1, 1, 64)),
             y_pred[:, 1].reshape((-1, 1, 64)),
             y_pred[:, 2].reshape((-1, 1, 64)),
             input_shape,
-            b_mag,
-            r_mag
-            # beta_n
-        )
+            eps,
+            beta_n
+        ]
+        # gamma_pred, gamma_pred_std = get_ensemble_prediction(
+        #     models=karhu_models, model_inputs=karhu_inputs)
+        gamma_pred = karhu_model(*karhu_inputs)
         y_test = labels
 
         y_test = y_test.detach().numpy()
