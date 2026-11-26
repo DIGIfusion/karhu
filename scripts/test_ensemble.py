@@ -30,9 +30,10 @@ import logging
 import numpy as np
 import torch
 from torch.utils.data import DataLoader, random_split
+import matplotlib.pyplot as plt
 
 from karhu import setup_dataset, setup_logger
-from karhu.gmax import test_ensemble
+from karhu.gmax import test_ensemble, load_ensemble_model
 from karhu import (
     plot_pred_vs_true,
     plot_pred_vs_true_colored,
@@ -40,9 +41,9 @@ from karhu import (
     plot_coverage_curve,
     plot_uncertainty_histogram,
     get_regression_scores,
+    get_classification_scores,
     plot_confusion_matrix
 )
-from karhu.gmax import load_ensemble_model
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -131,11 +132,14 @@ def main():
     scores = get_regression_scores(y_test_ref, y_pred_mean)
     for k, v in scores.items():
         logger.info("ENSEMBLE %s: %.5f", k, v)
+    classification_metrics = get_classification_scores(
+        y_true=y_test_ref, y_pred=y_pred_mean, threshold=0.03)
+    for k, v in classification_metrics.items():
+        logger.info("ENSEMBLE %s: %.5f", k, v)
 
     # ---------------------------
     # Plots
     # ---------------------------
-    import matplotlib.pyplot as plt
     filename = os.path.join(args.output_dir, "pred_vs_true.png")
     fig, axs = plt.subplots(1, 3, figsize=(15, 4))
     plot_pred_vs_true(
